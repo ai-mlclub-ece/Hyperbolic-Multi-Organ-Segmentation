@@ -1,9 +1,11 @@
 import os
 import sys
 import json
+import random
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import nibabel as nib
 
 class dataIngestion:
@@ -57,8 +59,8 @@ class dataIngestion:
                 labelPath = self.jsonData[split][i]["label"]
 
             row = pd.DataFrame({
-                "imgPath": [imgPath] * slices,
-                "labelPath": [labelPath] * slices,
+                "imgPath": [root_dir + imgPath[1:]] * slices,
+                "labelPath": [root_dir + labelPath[1:]] * slices,
                 "slice_idx": range(slices)
             })
 
@@ -67,7 +69,31 @@ class dataIngestion:
         print(f"Total number of slices in {split} set: {sliceinfo.shape[0]}")
         return sliceinfo
 
+    def plotRandomSlice(self, sliceinfo : pd.DataFrame, save_plot: bool = False):
+        """
+        Plot a random slice from the dataframe
+        """
+        random_index = random.choice(sliceinfo.index)
+        random_row = sliceinfo.loc[random_index]
 
+        img = self.loadVolume(random_row["imgPath"], transpose = True)[random_row["slice_idx"]]
+        label = self.loadVolume(random_row["labelPath"], transpose = True)[random_row["slice_idx"]]
+
+        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+        ax[0].imshow(img, cmap="gray")
+        ax[0].set_title("Image")
+        ax[0].axis("off")
+
+        ax[1].imshow(label, cmap="gray")
+        ax[1].set_title("Label")
+        ax[1].axis("off")
+        
+        if save_plot:
+            plt.savefig(f"slice-{random_index}.png")
+
+        plt.show()
 
 if __name__ == "__main__":
     di = dataIngestion(sys.argv[1])
+    sliceinfo = di.getSliceinfo(sys.argv[2], split="validation")
+    di.plotRandomSlice(sliceinfo, save_plot=True)
