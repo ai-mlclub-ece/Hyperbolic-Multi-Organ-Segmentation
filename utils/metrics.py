@@ -4,6 +4,7 @@ import torch
 class dicescore(nn.Module):
     def __init__(self):
         super(dicescore, self).__init__()
+        self.name = 'dice_score'
 
     def dice_coefficient(preds, masks, smooth=1e-6):
         """
@@ -27,6 +28,8 @@ class dicescore(nn.Module):
 class miou(nn.Module):
     def __init__(self):
         super(miou, self).__init__()
+        self.name = 'miou'
+
     def mIou(pred, target):
         """
         Evaluates the mean Intersection over Union (mIoU) for the predicted and target masks
@@ -50,6 +53,8 @@ class miou(nn.Module):
 class precision(nn.Module):
     def __init__(self):
         super(precision, self).__init__()
+        self.name = 'precision'
+
     def precision(preds, targets):
         """
         Evaluates the precision for the predicted and target masks
@@ -73,6 +78,8 @@ class precision(nn.Module):
 class recall(nn.Module):
     def __init__(self):
         super(recall,self).__init__()
+        self.name = 'recall'
+        
     def recall(preds, targets):
         """
         Evaluates the recall for the predicted and target masks
