@@ -1,6 +1,7 @@
 torch
 torchvision
 tqdm
+cv2
 json
 numpy
 pandas
