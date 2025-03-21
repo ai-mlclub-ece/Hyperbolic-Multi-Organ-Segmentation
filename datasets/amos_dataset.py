@@ -10,7 +10,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import nibabel as nib
 
+import torch
 from torch.utils.data import Dataset
+from torchvision import transforms
 
 class dataIngestion:
     def __init__(self, jsonPath):
@@ -135,9 +137,8 @@ class dataIngestion:
 
 
 class AMOS_Preprocess:
-    def __init__(self, data_dir: str, jsonPath: str):
-        self.data_dir = data_dir
-        self.jsonPath = jsonPath
+    def __init__(self, jsonPath: str):
+        
         self.dataIngestor = dataIngestion(jsonPath)
         self.label_to_pixel_value: dict = self.dataIngestor.getLabels()
 
@@ -162,7 +163,7 @@ class AMOS_Preprocess:
 
         return organ_masks
     
-    def windowing(self, img: np.ndarray, window: tuple[int, int], window_preset: str = 'ct_abdomen') -> np.ndarray:
+    def windowing(self, img: np.ndarray, window: tuple[int, int] = None, window_preset: str = 'ct_abdomen') -> np.ndarray:
         """
         Apply windowing to the image
 
@@ -181,7 +182,7 @@ class AMOS_Preprocess:
             'ct_spleen': (-135, 215),
             'ct_pancreas': (-135, 215),
         }
-        if window:
+        if window is not None:
             return np.clip(img, window[0], window[1])
 
         if window_preset:
@@ -220,6 +221,85 @@ class AMOS_Preprocess:
             return cv2.resize(img, target_shape, interpolation=cv2.INTER_NEAREST)
         else:
             return cv2.resize(img, target_shape, interpolation=cv2.INTER_LINEAR)
+        
+    def apply_preprocessing(self, img: np.ndarray,
+                             mask: np.ndarray,
+                             img_size: tuple[int, int] = (512, 512),
+                             labels: list[str] = ["liver", "pancreas", "spleen"],
+                             window: tuple[int, int] = None,
+                             window_preset: str = 'ct_abdomen'
+                            ) -> tuple[torch.tensor, torch.tensor]:
+        """
+        Apply preprocessing to the image and mask
+        
+        Args:
+            img (np.ndarray): The image to apply preprocessing to
+            mask (np.ndarray): The mask to apply preprocessing to
+            img_size (tuple[int, int]): The size to resize the image and mask to
+            labels (list[str]): The labels of the organs to be in the mask
+            window (tuple[int, int]): The window to apply to the image
+            window_preset (str): The window preset to apply to the image
+
+        Returns:
+            img (torch.tensor): The preprocessed image
+            mask (torch.tensor): The preprocessed mask
+            """
+        # Processing Image
+        img = self.windowing(img, window, window_preset)
+        img = self.resize(img, img_size)
+        img = self.normalize(img)
+
+        # Processing Mask
+        mask = self.getOrganmasks(mask, labels = labels)
+        mask = self.resize(mask, img_size, label=True)
+
+        return torch.tensor(img).unsqueeze(0), torch.tensor(mask).unsqueeze(0)
     
 class AMOS_Dataset(Dataset):
-    pass
+    def __init__(self, data_dir: str,
+                 jsonPath: str,
+                 split: str = "training",
+                 img_size: tuple[int, int] = (512, 512),
+                 labels: list[str] = ["liver", "pancreas", "spleen"],
+                 window: tuple[int, int] = None,
+                 window_preset: str = 'ct_abdomen',
+                 transform: bool = False):
+                 
+        self.data_dir = data_dir
+        self.dataIngestor = dataIngestion(jsonPath)
+        self.preprocessor = AMOS_Preprocess(jsonPath)
+        self.data = self.dataIngestor.getSliceinfo(data_dir, split)
+
+        self.img_size = img_size
+        self.labels = labels
+        self.window = window
+        self.window_preset = window_preset
+
+        self.transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomRotation(90),
+        ]) if transform else None
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        
+        img_path, label_path, slice_idx = self.data.iloc[index]
+
+        vol = self.dataIngestor.loadVolume(img_path, transpose=True)
+        labels = self.dataIngestor.loadVolume(label_path, transpose=True)
+
+        img = vol[slice_idx]
+        mask = labels[slice_idx]
+
+        img, mask = self.preprocessor.apply_preprocessing(img, mask, self.img_size, self.labels, self.window, self.window_preset)
+
+        if self.transform is not None:
+            stacked = torch.cat([img, mask], dim=0)
+            stacked = self.transform(stacked)
+            img, mask = stacked[0:1, :, :], stacked[1:2, :, :]
+
+        return img, mask
