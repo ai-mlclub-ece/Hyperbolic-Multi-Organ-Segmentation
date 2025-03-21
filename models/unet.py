@@ -145,3 +145,6 @@ class UNet(nn.Module):
         """
         x = self.unet_backbone(x)
         return self.final_activation(x)
+    
+if __name__ == "__main__":
+    model = UNet(out_channels=1)
