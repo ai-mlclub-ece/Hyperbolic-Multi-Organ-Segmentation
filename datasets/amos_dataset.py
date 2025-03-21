@@ -303,3 +303,9 @@ class AMOS_Dataset(Dataset):
             img, mask = stacked[0:1, :, :], stacked[1:2, :, :]
 
         return img, mask
+
+if __name__ == "__main__":
+    data_dir = sys.argv[1]
+    jsonPath = sys.argv[2]
+
+    dataset = AMOS_Dataset(data_dir, jsonPath, split="training")
