@@ -2,24 +2,24 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
-class bceloss(nn.Module):
+class BCELoss(nn.Module):
     def __init__(self):
-        super(bceloss, self).__init__()
+        super(BCELoss, self).__init__()
         self.name = 'bce'
         self.bce = nn.BCELoss()
-        
+
     def forward(self, x, y):
         """
         x: output of the model
         y: target
         
-        return: BCE loss
+        return: Binary Cross Entropy loss
         """
         return self.bce(x, y)
 
-class diceloss(nn.Module):
+class DiceLoss(nn.Module):
     def __init__(self):
-        super(diceloss, self).__init__()
+        super(DiceLoss, self).__init__()
         self.name = 'dice'
 
     def dice_coefficient(preds, masks, smooth=1e-6):
@@ -76,9 +76,9 @@ class HyperUL(nn.Module):
             hyperul = (uncertainty_weights * ce_loss).mean()
         return hyperul
     
-class jaccardloss(nn.Module):
+class JaccardLoss(nn.Module):
     def __init__(self):
-        super(jaccardloss, self).__init__()
+        super(JaccardLoss, self).__init__()
         self.name = 'jaccard'
 
     def miou(preds, masks, smooth=1e-6):
@@ -102,6 +102,49 @@ class jaccardloss(nn.Module):
 class hyperbolicdistance(nn.Module):
     def __init__(self, c=c):
         super(hyperbolicdistance, self).__init__()
+        self.name = 'hyperbolic_distance'
         pass
-      
+    def forward(self, logits, targets):  
+        """
+        Args:
+            logits: output of the model
+            targets: target
+
+        Returns:
+            Hyperbolic distance
+        """
+        pass
+
+losses: dict = {
+    'bce': nn.BCELoss(),
+    'dice': DiceLoss(),
+    'jaccard': JaccardLoss(),
+    'hyperul': HyperUL(),
+    'hyperbolicdistance': hyperbolicdistance()
+}
+
+class CombinedLoss(nn.Module):
+    def __init__(self, loss_list: list = ['bce', 'dice'], weights: list[float] = [0.5, 0.5]):
+        super(CombinedLoss, self).__init__()
+        self.name = 'combined'
+
+        if len(loss_list) != len(weights):
+            raise ValueError("Length of loss_list and weights should be equal")
         
+        self.losses = [losses[loss] for loss in loss_list]
+        
+        self.weights = weights
+    
+    def forward(self, x, y):
+        """
+        x: output of the model
+        y: target
+        
+        return: Combined loss
+        """
+        loss = 0
+        for i, loss_fn in enumerate(self.losses):
+            loss += self.weights[i] * loss_fn(x, y)
+        return loss
+
+losses['combined'] = CombinedLoss()
