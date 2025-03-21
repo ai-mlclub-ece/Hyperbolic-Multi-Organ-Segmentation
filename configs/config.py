@@ -17,6 +17,8 @@ class Config:
         for key, value in args.items():
             if hasattr(self, key):
                 setattr(self, key, value)
+            else:
+                raise ValueError(f"Invalid argument: {key}")
 
     def save_config(self, filename: str):
         """
@@ -36,6 +38,7 @@ class trainConfig(Config):
 
         self.model: str = ''
         self.loss: str = ''
+        self.loss_config: dict = lossConfig(**args).__dict__
         self.metric: str = ''
         self.optimizer: str = ''
         self.learning_rate: float = 0.0
@@ -52,6 +55,7 @@ class trainConfig(Config):
         super().set_default()
         self.model = 'UNet'
         self.loss = 'bce'
+        self.loss_config = lossConfig().set_default().__dict__
         self.metric = 'all'
         self.optimizer = 'adam'
         self.learning_rate = 10e-4
@@ -68,6 +72,50 @@ class trainConfig(Config):
             filename = f"{self.model}_{self.loss}-v{self.version + 1}"
         return filename
 
+    
+class lossConfig(Config):
+    def __init__(self, **args):
+        super().__init__(**args)
+
+        self.loss: str = ''
+        self.weights: list[float] = []
+        self.loss_list: list[str] = [self.loss]
+
+        self.set_default()
+        self.set_args(**args)
+
+    def set_default(self):
+        super().set_default()
+        self.loss = 'bce'
+        self.weights = [1.0]
+        self.loss_list = [self.loss]
+
+class testConfig(Config):
+    def __init__(self, **args):
+        super().__init__(**args)
+
+        self.model: str = ''
+        self.checkpoint: str = ''
+        self.batch_size: int = 0
+        self.save_results: bool = False
+        self.result_dir: str = ''
+
+        self.set_default()
+        self.set_args(**args)
+
+    def set_default(self):
+        super().set_default()
+        self.model = 'UNet'
+        self.checkpoint = 'UNet-bce-v1.pth'
+        self.batch_size = 16
+        self.save_results = False
+        self.result_dir = self.get_config_filename()
+    
+    def get_config_filename(self):
+        filename = f"{self.checkpoint.split('.')[0]}"
+        return filename
+
+    
 if __name__ == '__main__':
 
     config = trainConfig(model = 'hc_unet')
