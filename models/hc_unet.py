@@ -7,6 +7,8 @@ import torch.nn.functional as F
 from unet import unet_backbone
 from utils import exp_map_zero
 
+from configs import Config, hc_unetConfig
+
 class HyperbolicLogisticRegression(nn.Module):
     def __init__(self, num_classes: int, embedding_dim: int, c: float, lambda_cp: float):
         super(HyperbolicLogisticRegression, self).__init__()
@@ -100,9 +102,9 @@ class HyperbolicLogisticRegression(nn.Module):
         return logit
     
 
-class HC_UNet(nn.Module):
+class HCUNet(nn.Module):
     def __init__(self, num_classes: int, embedding_dim: int, curvature: float, lambda_cp: float):
-        super(HC_UNet, self).__init__()
+        super(HCUNet, self).__init__()
         """
         Hyperbolic Classifier UNet with Hyperbolic Logistic Regression head.
         
@@ -115,7 +117,7 @@ class HC_UNet(nn.Module):
         self.unet = unet_backbone(out_channels = embedding_dim)
         self.unet.apply(self.unet.init_weights)
 
-        self.hc_logreg = HyperbolicLogisticRegression(num_classes,
+        self.classifier = HyperbolicLogisticRegression(num_classes,
                                                        embedding_dim,
                                                        curvature,
                                                        lambda_cp)
@@ -147,6 +149,24 @@ class HC_UNet(nn.Module):
         hyperbolic_embedding = exp_map_zero(embedding, self.hc_logreg.c)
         
         # Compute logits with hyperbolic logistic regression
-        logits = self.hc_logreg(hyperbolic_embedding)
+        logits = self.classifier(hyperbolic_embedding)
 
         return logits
+    
+class HCUNetTrainer:
+    def __init__(self, config: Config = hc_unetConfig()):
+        self.model = HCUNet(num_classes = len(config.labels),
+                            embedding_dim = config.embedding_dim,
+                            curvature = config.curvature,
+                            lambda_cp = config.lambda_cp)
+        
+        self.optimizers = [config.optimizers[0](self.model.unet.parameters(), lr = config.learning_rate),
+                           config.optimizers[1](self.model.classifier.parameters(), lr = config.learning_rate)]
+        
+if __name__ == "__main__":
+    model = HCUNet(num_classes=3,
+                   embedding_dim=256,
+                   curvature=0.1,
+                   lambda_cp=1.0
+    )
+        

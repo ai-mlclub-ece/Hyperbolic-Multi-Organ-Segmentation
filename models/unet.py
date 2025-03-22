@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from configs import Config, unetConfig
 
 class unet_backbone(nn.Module):
     def __init__(self, out_channels: int):
@@ -117,7 +118,7 @@ class unet_backbone(nn.Module):
         return self.outconv(x)
 
 class UNet(nn.Module):
-    def __init__(self, out_channels: int):
+    def __init__(self, num_classes: int):
         super(UNet, self).__init__()
         """
         UNet model with activation function at the end
@@ -125,10 +126,10 @@ class UNet(nn.Module):
         Args:
             out_channels: int, number of output channels
         """
-        self.unet_backbone = unet_backbone(out_channels)
+        self.unet_backbone = unet_backbone(num_classes)
         self.unet_backbone.apply(self.unet_backbone.init_weights)
 
-        if out_channels == 1:
+        if num_classes == 1:
             self.final_activation = nn.Sigmoid()
         else:
             self.final_activation = nn.Softmax(dim=1)
@@ -146,5 +147,10 @@ class UNet(nn.Module):
         x = self.unet_backbone(x)
         return self.final_activation(x)
     
+class UNetTrainer:
+    def __init__(self, config: Config):
+        self.model = UNet(num_classes = len(config.labels))
+        self.optimizers = config.optimizer(self.model.parameters(), lr = config.learning_rate)
+        
 if __name__ == "__main__":
-    model = UNet(out_channels=1)
+    model = UNet(num_classes=3)
