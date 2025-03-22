@@ -115,12 +115,12 @@ class hyperbolicdistance(nn.Module):
         """
         pass
 
-losses: dict = {
-    'cross_entropy': CrossEntropyLoss(),
-    'dice': DiceLoss(),
-    'jaccard': JaccardLoss(),
-    'hyperul': HyperUL(),
-    'hyperbolicdistance': hyperbolicdistance()
+criterions: dict = {
+    'cross_entropy': CrossEntropyLoss,
+    'dice': DiceLoss,
+    'jaccard': JaccardLoss,
+    'hyperul': HyperUL,
+    'hyperbolicdistance': hyperbolicdistance
 }
 
 class CombinedLoss(nn.Module):
@@ -131,7 +131,7 @@ class CombinedLoss(nn.Module):
         if len(loss_list) != len(weights):
             raise ValueError("Length of loss_list and weights should be equal")
         
-        self.losses = [losses[loss] for loss in loss_list]
+        self.losses = [criterions[loss] for loss in loss_list]
         
         self.weights = weights
     
@@ -147,4 +147,4 @@ class CombinedLoss(nn.Module):
             loss += self.weights[i] * loss_fn(x, y)
         return loss
 
-losses['combined'] = CombinedLoss()
+criterions['combined'] = CombinedLoss

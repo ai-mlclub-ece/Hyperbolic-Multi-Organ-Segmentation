@@ -18,7 +18,6 @@ class trainConfig(Config,
         self.metric: str = ''
         self.batch_size: int = 0
         self.epochs: int = 0
-        self.image_size: tuple[int, int] = (0, 0)
         self.checkpoint_dir: str = ''
         self.log_dir: str = ''
 
