@@ -1,12 +1,28 @@
-import torch.nn as nn
 import torch
 
-class dicescore(nn.Module):
+class baseMetric:
     def __init__(self):
-        super(dicescore, self).__init__()
+        pass
+
+    def metric(preds, masks):
+        pass
+
+    def compute(self, preds, masks, labels_to_pixels: dict):
+        scores = {}
+        for label, pixel_value in labels_to_pixels.items():
+            pred = preds[preds == pixel_value].float()
+            mask = masks[masks == pixel_value].float()
+
+            scores[label] =  self.metric(pred, mask)
+
+        return scores, sum(scores.values())/len(labels_to_pixels)
+
+class dicescore(baseMetric):
+    def __init__(self):
+        
         self.name = 'dice_score'
 
-    def compute(preds, masks, smooth=1e-6):
+    def metric(preds, masks, smooth=1e-6):
         """
         Evaluates the dice coefficient for the predicted and target masks
         
@@ -23,14 +39,15 @@ class dicescore(nn.Module):
 
         dice_score = (2. * intersection + smooth) / (union + smooth)
 
-        return dice_score.mean().item() 
+        return dice_score.mean().item()
+    
 
-class miou(nn.Module):
+class miou(baseMetric):
     def __init__(self):
-        super(miou, self).__init__()
+        
         self.name = 'miou'
 
-    def compute(preds, targets):
+    def metric(preds, targets):
         """
         Evaluates the mean Intersection over Union (mIoU) for the predicted and target masks
 
@@ -50,12 +67,12 @@ class miou(nn.Module):
         iou = (intersection + 1e-8) / (union + 1e-8)
         return iou.mean().item()
     
-class precision(nn.Module):
+class precision(baseMetric):
     def __init__(self):
-        super(precision, self).__init__()
+        
         self.name = 'precision'
 
-    def compute(preds, targets):
+    def metric(preds, targets):
         """
         Evaluates the precision for the predicted and target masks
 
@@ -75,12 +92,12 @@ class precision(nn.Module):
         precision = tp / (tp + fp + 1e-8)
         return precision.item()
     
-class recall(nn.Module):
+class recall(baseMetric):
     def __init__(self):
-        super(recall,self).__init__()
+        
         self.name = 'recall'
         
-    def compute(preds, targets):
+    def metric(preds, targets):
         """
         Evaluates the recall for the predicted and target masks
 

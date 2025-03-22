@@ -88,7 +88,8 @@ def main():
 
             train_loss += loss.item()
             for metric in metrics:
-                train_metrics[metric.name] += metric.compute(outputs, masks)
+                train_metrics[metric.name] += metric.compute(outputs, masks,
+                                                             trainDataloader.dataset.label_to_pixel_value)
 
             train_iterator.set_postfix({
                 f'{loss.name}_loss' : f'{train_loss/(i+1):.4f}',
