@@ -1,4 +1,3 @@
-import os
 import json
 
 class Config:
@@ -15,10 +14,8 @@ class Config:
 
     def set_args(self, **args):
         for key, value in args.items():
-            if hasattr(self, key):
+            if hasattr(self, key) & value is not None:
                 setattr(self, key, value)
-            else:
-                raise ValueError(f"Invalid argument: {key}")
 
     def save_config(self, filename: str):
         """
@@ -54,5 +51,5 @@ class lossConfig(Config):
     
 if __name__ == '__main__':
 
-    config = trainConfig(model = 'hc_unet')
+    config = Config()
     print(config.__dict__)

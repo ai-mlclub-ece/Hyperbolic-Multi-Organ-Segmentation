@@ -4,6 +4,7 @@ class amosDatasetConfig(Config):
     def __init__(self, **args):
         super().__init__(**args)
 
+        self.mode : str = ''
         self.data_dir: str = ''
         self.jsonPath: str = ''
         self.split   : str = ''
@@ -12,6 +13,7 @@ class amosDatasetConfig(Config):
         self.window  : tuple[int,int] = ()
         self.window_preset : str = ''
         self.transform : bool = False
+        self.batch_size: int = None
 
         self.set_default()
         self.set_args(**args)
@@ -19,6 +21,7 @@ class amosDatasetConfig(Config):
     def set_default(self):
         super().set_default()
 
+        self.mode : str = 'train'
         self.data_dir: str = ''
         self.jsonPath: str = ''
         self.split   : str = 'training'
@@ -27,6 +30,7 @@ class amosDatasetConfig(Config):
         self.window  : tuple[int,int] = None
         self.window_preset : str = 'ct_abdomen'
         self.transform : bool = False
+        self.batch_size: int = 16
 
 
         

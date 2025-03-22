@@ -282,6 +282,8 @@ class AMOS_Dataset(Dataset):
             transforms.RandomRotation(90),
         ]) if transform else None
 
+        self.label_to_pixel_value = self.preprocessor.label_to_pixel_value
+
     def __len__(self):
         return len(self.data)
 
