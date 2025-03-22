@@ -3,13 +3,15 @@ from configs import *
 
 import torch
 from torch.utils.data import DataLoader
-from datasets import AmosDataset
+from datasets import get_dataloaders
+import tqdm
 
 from models import trainers
-from utils import criterions
+from utils import criterions, all_metrics
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--mode', choices = ['train', 'validation', 'test'], help = 'choose between train, validation, test')
     parser.add_argument('--version', type = int, help = 'version of the config')
     parser.add_argument('--dataset', help = 'name of the dataset')
 
@@ -43,12 +45,7 @@ def main():
     args = parse_args().__dict__
     train_config = trainConfig(**args)
 
-
-    trainDataloader = DataLoader(
-        AmosDataset(amosDatasetConfig(**args)),
-        batch_size= train_config.batch_size
-    )
-
+    trainDataloader, valDataloader = get_dataloaders(config = amosDatasetConfig(**args))
 
     trainer = trainers[train_config.model]()
     if len(args.loss_list) is not None:
@@ -57,6 +54,51 @@ def main():
             weights = train_config.weights
         )
     else:
-        criterion = criterions[train_config.loss]
+        criterion = criterions[train_config.loss]()
+
+
+    for epoch in train_config.epochs:
+        trainer.model.train()
+
+
+        if train_config.metric == 'all':
+            metrics = [metric() for metric in all_metrics.values()]
+        else :
+            metrics = [all_metrics[train_config.metric]]
+
+        train_metrics = {metric.name: 0 for metric in metrics}
+        train_loss    = 0
+
+        train_iterator = tqdm(enumerate(trainDataloader), total = len(trainDataloader), desc = f'Epoch-{epoch+1}:')
+
+        for i, (inputs, masks) in train_iterator:
+            inputs = inputs
+            masks = masks
+
+            for optimizer in trainer.opttimizers:
+                optimizer.zero_grad()
+
+            outputs = trainer.model(inputs)
+            loss = criterion(outputs, masks)
+
+            loss.backward()
+
+            for optimizer in trainer.opttimizers:
+                optimizer.step()
+
+            train_loss += loss.item()
+            for metric in metrics:
+                train_metrics[metric.name] += metric.compute(outputs, masks)
+
+            train_iterator.set_postfix({
+                f'{loss.name}_loss' : f'{train_loss/(i+1):.4f}',
+                **{
+                    metric.name : train_metrics[metric.name] for metric in metrics
+                }
+            })
+        
+        train_metrics = {
+            metric.name : value/len(trainDataloader) for metric, value in train_metrics.items()
+        }
 
     

@@ -14,8 +14,6 @@ import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-from configs import Config, amosDatasetConfig
-
 class dataIngestion:
     def __init__(self, jsonPath):
         self.jsonPath = jsonPath
@@ -258,24 +256,31 @@ class AMOS_Preprocess:
         return torch.tensor(img).unsqueeze(0), torch.tensor(mask).unsqueeze(0)
     
 class AMOS_Dataset(Dataset):
-    def __init__(self, config: Config = amosDatasetConfig()):
+    def __init__(self, data_dir: str,
+                 jsonPath: str,
+                 split: str = "training",
+                 img_size: tuple[int, int] = (512, 512),
+                 labels: list[str] = ["liver", "pancreas", "spleen"],
+                 window: tuple[int, int] = None,
+                 window_preset: str = 'ct_abdomen',
+                 transform: bool = False):
                  
-        self.data_dir = config.data_dir
-        self.dataIngestor = dataIngestion(config.jsonPath)
-        self.preprocessor = AMOS_Preprocess(config.jsonPath)
-        self.data = self.dataIngestor.getSliceinfo(config.data_dir, config.split)
+        self.data_dir = data_dir
+        self.dataIngestor = dataIngestion(jsonPath)
+        self.preprocessor = AMOS_Preprocess(jsonPath)
+        self.data = self.dataIngestor.getSliceinfo(data_dir, split)
 
-        self.img_size = config.img_size
-        self.labels = config.labels
-        self.window = config.window
-        self.window_preset = config.window_preset
+        self.img_size = img_size
+        self.labels = labels
+        self.window = window
+        self.window_preset = window_preset
 
         self.transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(),
             transforms.RandomRotation(90),
-        ]) if config.transform else None
+        ]) if transform else None
 
     def __len__(self):
         return len(self.data)

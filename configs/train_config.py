@@ -16,7 +16,6 @@ class trainConfig(Config,
 
         self.model: str = ''
         self.metric: str = ''
-        self.batch_size: int = 0
         self.epochs: int = 0
         self.checkpoint_dir: str = ''
         self.log_dir: str = ''
@@ -28,7 +27,6 @@ class trainConfig(Config,
         super().set_default()
         self.model = 'UNet'
         self.metric = 'all'
-        self.batch_size = 16
         self.epochs = 10
         self.checkpoint_dir = 'checkpoints'
         self.log_dir = 'logs'

@@ -6,7 +6,7 @@ class dicescore(nn.Module):
         super(dicescore, self).__init__()
         self.name = 'dice_score'
 
-    def dice_coefficient(preds, masks, smooth=1e-6):
+    def compute(preds, masks, smooth=1e-6):
         """
         Evaluates the dice coefficient for the predicted and target masks
         
@@ -30,7 +30,7 @@ class miou(nn.Module):
         super(miou, self).__init__()
         self.name = 'miou'
 
-    def mIou(pred, target):
+    def compute(preds, targets):
         """
         Evaluates the mean Intersection over Union (mIoU) for the predicted and target masks
 
@@ -42,12 +42,12 @@ class miou(nn.Module):
             mIoU: mean Intersection over Union (mIoU)
         """
     
-        target = target.float()
+        targets = targets.float()
 
-        intersection = (pred * target).sum(dim=(1,2,3))
-        union = (pred + target).sum(dim=(1,2,3)) - intersection 
+        intersection = (preds * targets).sum(dim=(1,2,3))
+        union = (preds + targets).sum(dim=(1,2,3)) - intersection 
 
-        iou = (intersection) / (union + 1e-8)
+        iou = (intersection + 1e-8) / (union + 1e-8)
         return iou.mean().item()
     
 class precision(nn.Module):
@@ -55,7 +55,7 @@ class precision(nn.Module):
         super(precision, self).__init__()
         self.name = 'precision'
 
-    def precision(preds, targets):
+    def compute(preds, targets):
         """
         Evaluates the precision for the predicted and target masks
 
@@ -80,7 +80,7 @@ class recall(nn.Module):
         super(recall,self).__init__()
         self.name = 'recall'
         
-    def recall(preds, targets):
+    def compute(preds, targets):
         """
         Evaluates the recall for the predicted and target masks
 
