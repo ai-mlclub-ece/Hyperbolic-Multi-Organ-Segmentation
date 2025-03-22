@@ -8,7 +8,7 @@ class unetConfig(Config, amosDatasetConfig):
     def __init__(self, **args):
         super().__init__(**args)
 
-        self.optimizers: list = None
+        self.optimizer = None
         self.learning_rate: float = 0.0
 
         self.set_default()
@@ -17,7 +17,7 @@ class unetConfig(Config, amosDatasetConfig):
     def set_default(self):
         super().set_default()
 
-        self.optimizers: list = [Adam]
+        self.optimizer = Adam
         self.learning_rate: float = 10e-4
 
 
