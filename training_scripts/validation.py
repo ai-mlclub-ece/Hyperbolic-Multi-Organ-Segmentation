@@ -44,6 +44,8 @@ def validate(valDataloader: DataLoader, trainer, config):
 
 
             val_loss += loss.item()
+
+            outputs = torch.argmax(outputs, dim = 1)
             for metric in metrics:
                 val_metrics[metric.name] += metric.compute(outputs, masks,
                                                              valDataloader.dataset.label_to_pixel_value)

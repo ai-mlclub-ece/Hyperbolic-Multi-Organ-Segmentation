@@ -6,11 +6,7 @@ from models_config import unetConfig, hc_unetConfig
 import os
 
 
-class trainConfig(Config,
-                  lossConfig,
-                  amosDatasetConfig, 
-                  unetConfig,
-                  hc_unetConfig):
+class trainConfig(Config):
     def __init__(self, **args):
         super().__init__(**args)
 
@@ -22,19 +18,18 @@ class trainConfig(Config,
 
         self.set_default()
         self.set_args(**args)
+        
+        if not os.path.exists(self.checkpoint_dir):
+            os.makedirs(self.checkpoint_dir)
+        if not os.path.exists(self.log_dir):
+            os.makedirs(self.log_dir)
 
     def set_default(self):
         super().set_default()
         self.model = 'UNet'
         self.metric = 'all'
         self.epochs = 10
-        self.checkpoint_dir = 'checkpoints'
-        self.log_dir = 'logs'
+        self.checkpoint_dir = 'checkpoints/'
+        self.log_dir = 'logs/'
 
-
-    def get_config_filename(self):
-        filename = f"{self.model}_{self.loss}-v{self.version}"
-        if os.path.exists(f"{filename}.json"):
-            filename = f"{self.model}_{self.loss}-v{self.version + 1}"
-        return filename
 
