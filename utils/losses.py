@@ -2,20 +2,20 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
-class BCELoss(nn.Module):
+class CrossEntropyLoss(nn.Module):
     def __init__(self):
-        super(BCELoss, self).__init__()
-        self.name = 'bce'
-        self.bce = nn.BCELoss()
+        super(CrossEntropyLoss, self).__init__()
+        self.name = 'cross_entropy'
+        self.ce = nn.CrossEntropyLoss()
 
     def forward(self, x, y):
         """
         x: output of the model
         y: target
         
-        return: Binary Cross Entropy loss
+        return: Cross Entropy loss
         """
-        return self.bce(x, y)
+        return self.ce(x, y)
 
 class DiceLoss(nn.Module):
     def __init__(self):
@@ -116,7 +116,7 @@ class hyperbolicdistance(nn.Module):
         pass
 
 losses: dict = {
-    'bce': nn.BCELoss(),
+    'cross_entropy': CrossEntropyLoss(),
     'dice': DiceLoss(),
     'jaccard': JaccardLoss(),
     'hyperul': HyperUL(),
@@ -124,7 +124,7 @@ losses: dict = {
 }
 
 class CombinedLoss(nn.Module):
-    def __init__(self, loss_list: list = ['bce', 'dice'], weights: list[float] = [0.5, 0.5]):
+    def __init__(self, loss_list: list = ['cross_entropy', 'dice'], weights: list[float] = [0.5, 0.5]):
         super(CombinedLoss, self).__init__()
         self.name = 'combined'
 
