@@ -8,6 +8,7 @@ import tqdm
 
 from models import trainers
 from utils import criterions, all_metrics
+from validation import validate
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -98,8 +99,11 @@ def main():
                 }
             })
         
+        train_loss /= len(trainDataloader)
         train_metrics = {
             metric.name : value/len(trainDataloader) for metric, value in train_metrics.items()
         }
+
+        val_loss, val_metrics = validate(valDataloader, trainer, train_config)
 
     
