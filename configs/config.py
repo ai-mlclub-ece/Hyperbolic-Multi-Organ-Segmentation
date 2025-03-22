@@ -2,15 +2,12 @@ import json
 
 class Config:
     def __init__(self, **args):
-        self.version: int = 0
-        self.dataset: str = ''
 
         self.set_default()
         self.set_args(**args)
     
     def set_default(self):
-        self.version = 1
-        self.dataset = 'AMOS Dataset'
+        pass
 
     def set_args(self, **args):
         for key, value in args.items():

@@ -4,10 +4,16 @@ from configs import *
 import torch
 from torch.utils.data import DataLoader
 from datasets import get_dataloaders
-import tqdm
+
+import time
+from tqdm import tqdm
 
 from models import trainers
-from utils import criterions, all_metrics
+from utils import (criterions,
+                   all_metrics,
+                   trainLogging,
+                   save_checkpoint)
+
 from validation import validate
 
 def parse_args():
@@ -44,28 +50,48 @@ def parse_args():
 
 def main():
     args = parse_args().__dict__
+
+    all_config = allConfig(**args)
+
+    config_filename = all_config.get_config_filename()
+    all_config.save_config(config_filename)
+
     train_config = trainConfig(**args)
 
     trainDataloader, valDataloader = get_dataloaders(config = amosDatasetConfig(**args))
 
+    # Model Initialization
     trainer = trainers[train_config.model]()
+
+    # Loss Initialization
     if len(args.loss_list) is not None:
         criterion = criterions['combined'](
             loss_list = train_config.loss_list,
             weights = train_config.weights
         )
+        train_config.loss = 'combined'
     else:
         criterion = criterions[train_config.loss]()
-
-
-    for epoch in train_config.epochs:
-        trainer.model.train()
-
-
-        if train_config.metric == 'all':
+    
+    # Metric Initialization
+    if train_config.metric == 'all':
             metrics = [metric() for metric in all_metrics.values()]
-        else :
-            metrics = [all_metrics[train_config.metric]]
+    else :
+        metrics = [all_metrics[train_config.metric]]
+
+
+    # Logger Initialization
+    logger = trainLogging(metrics = [metric.name for metric in metrics], config = train_config)
+
+    best_val_dice = 0
+    total_training_time = 0
+
+    # Training Loop
+    for epoch in train_config.epochs:
+
+
+        start_time = time.time()
+        trainer.model.train()
 
         train_metrics = {metric.name: 0 for metric in metrics}
         train_loss    = 0
@@ -88,6 +114,8 @@ def main():
                 optimizer.step()
 
             train_loss += loss.item()
+
+            outputs = torch.argmax(outputs, dim = 1)
             for metric in metrics:
                 train_metrics[metric.name] += metric.compute(outputs, masks,
                                                              trainDataloader.dataset.label_to_pixel_value)
@@ -106,4 +134,20 @@ def main():
 
         val_loss, val_metrics = validate(valDataloader, trainer, train_config)
 
-    
+        if val_metrics['dice_score'] > best_val_dice:
+            best_val_dice = val_metrics['dice_score']
+            save_checkpoint(trainer.model, trainer.optimizers, epoch,
+                            train_config.checkpoint_dir + f'{config_filename}.pth')
+
+        epoch_time = time.time() - start_time
+        total_training_time += epoch_time
+
+        # Update Logger
+        logger.add_epoch_logs(epoch = epoch, epoch_time = epoch_time,
+                              train_loss = train_loss, train_metrics = train_metrics,
+                              val_loss = val_loss, val_metrics = val_metrics)
+
+    # Save Logs
+    logger.save_train_logs(filename = train_config.log_dir + config_filename + '.csv')
+
+    print(f"Training Completed in {total_training_time:.2f} seconds")

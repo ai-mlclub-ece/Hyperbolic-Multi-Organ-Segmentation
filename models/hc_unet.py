@@ -121,6 +121,8 @@ class HCUNet(nn.Module):
                                                        embedding_dim,
                                                        curvature,
                                                        lambda_cp)
+        
+        self.activation = nn.Sigmoid() if num_classes == 1 else nn.Softmax(dim=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -151,7 +153,7 @@ class HCUNet(nn.Module):
         # Compute logits with hyperbolic logistic regression
         logits = self.classifier(hyperbolic_embedding)
 
-        return logits
+        return self.activation(logits)
     
 class HCUNetTrainer:
     def __init__(self, config: Config = hc_unetConfig()):
