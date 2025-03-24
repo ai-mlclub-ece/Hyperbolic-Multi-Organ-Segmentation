@@ -1,20 +1,24 @@
-import argparse
-from configs import *
 
-import torch
-from torch.utils.data import DataLoader
-from datasets import get_dataloaders
-
+import os
 import time
 from tqdm import tqdm
+import argparse
 
-from models import trainers
+
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+from torch.nn.parallel import DistributedDataParallel as DDP
+
+from configs import *
+from datasets import get_dataloaders
+from models import model_trainers
 from utils import (criterions,
                    all_metrics,
                    trainLogging,
                    save_checkpoint)
 
-from validation import validate
+from validation import Validator
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -45,10 +49,127 @@ def parse_args():
     parser.add_argument('--checkpoint-dir', help = 'path to the checkpoint dir')
     parser.add_argument('--log-dir', help = 'path to the log dir')
 
+    parser.add_argument('--single-gpu', action= 'store_true', help= 'use single gpu for training')
+
 
     return parser.parse_args()
 
+class Trainer:
+    def __init__(self, train_data : DataLoader,
+                 trainer, epochs: int,
+                 validator, val_data : DataLoader,
+                 criterion, metrics,
+                 multi_gpu: bool,
+                 train_logger,
+                 config_filename,
+                 train_config):
+        
+        self.config = train_config
+        self.gpu_id = int(os.environ["LOCAL_RANK"]) if multi_gpu else 0
+        
+        self.data = train_data
+        self.model : nn.Module = trainer.model.to(self.gpu_id)
+        self.criterion = criterion
+        self.metrics = metrics
+        self.optimizers = trainer.optimizers
+        self.epochs = epochs
+
+        self.multi_gpu = multi_gpu
+        if multi_gpu:
+            self.model = DDP(self.model, device_ids = [self.gpu_id])
+
+        self.validator = validator(
+            val_data = val_data,
+            criterion = criterion,
+            metrics = metrics
+        )
+        self.best_val_dice = 0
+        self.logger = train_logger
+        self.filename = config_filename
+    
+    def _run_epoch(self):
+
+        # Initialize epoch logs to 0
+        epoch_logs : dict = {
+            'loss' : 0,
+            **{metric.name: 0 for metric in self.metrics}
+        }
+
+        # Train on all Batches
+        for inputs, masks in self.data:
+            inputs = inputs.to(self.gpu_id)
+            masks = masks.to(self.gpu_id)
+
+            loss, metrics = self._run_batch(inputs, masks)
+
+            # Accumulate Logs
+            epoch_logs['loss'] += loss
+            for metric in metrics:
+                epoch_logs[metric.name] += metrics[metric]
+
+        # Compute Average for all logs 
+        for log in epoch_logs:
+            epoch_logs[log] /= len(self.data)
+        
+        return epoch_logs
+
+    def _run_batch(self, inputs, masks):
+
+        for optimizer in self.optimizers:
+            optimizer.zero_grad()
+
+        outputs = self.model(inputs)
+        loss = self.criterion(outputs, masks)
+
+        loss.backward()
+
+        for optimizer in self.optimizers:
+            optimizer.step()
+
+        outputs = torch.argmax(outputs, dim = 1)
+
+        metrics = {}
+        for metric in self.metrics:
+            metrics[metric.name] += metric.compute(outputs, masks,
+                                                   self.data.dataset.label_to_pixel_value)[1]
+            
+        return loss.item(), metrics
+            
+    def train(self):
+        start_time = time.time()
+        self.model.train()
+
+        for epoch in self.epochs:
+            epoch_logs = self._run_epoch(epoch)
+
+            # Validation
+            val_logs = self.validator.validate(model = self.model)
+
+            # Update Logs
+            self.logger.add_epoch_logs(epoch, epoch_logs, val_logs)
+
+            # Save if best model checkpoint
+            if val_logs['dice_score'] > self.best_val_dice:
+                save_checkpoint(self.model, self.optimizers, epoch,
+                                self.checkpoint_dir + self.filename + '.pth',
+                                self.multi_gpu)
+        # Save Logs
+        self.logger.save_train_logs(filename = train_config.log_dir + self.filename + '.csv')
+
+        training_time = time.time() - start_time
+            
+        if self.gpu_id == 0:
+            print(f"Training Complete in {training_time:.2f}s with {training_time/self.epochs:.2f} for epcoh")
+
+        
+
+
+
+    
 def main():
+    if not torch.cuda.is_available():
+        raise Exception("Cuda is not available, training on CPU is not Ideal")
+
     args = parse_args().__dict__
 
     all_config = allConfig(**args)
@@ -58,10 +179,17 @@ def main():
 
     train_config = trainConfig(**args)
 
-    trainDataloader, valDataloader = get_dataloaders(config = amosDatasetConfig(**args))
+    multi_gpu = not args['single_gpu']
+
+    if torch.cuda.device_count() == 1:
+        multi_gpu = False
+
+
+    trainDataloader, valDataloader = get_dataloaders(multi_gpu = multi_gpu,
+                                                     config = amosDatasetConfig(**args))
 
     # Model Initialization
-    trainer = trainers[train_config.model]()
+    model_trainer = model_trainers[train_config.model]()
 
     # Loss Initialization
     if len(args.loss_list) is not None:
@@ -79,75 +207,21 @@ def main():
     else :
         metrics = [all_metrics[train_config.metric]]
 
-
     # Logger Initialization
     logger = trainLogging(metrics = [metric.name for metric in metrics], config = train_config)
 
-    best_val_dice = 0
-    total_training_time = 0
+    trainer = Trainer(
+        train_data = trainDataloader,
+        trainer = model_trainer,
+        epochs = train_config.epochs,
+        criterion = criterion,
+        metrics = metrics,
+        train_logger = logger,
+        multi_gpu = multi_gpu,
+        train_config = train_config
+    )
 
-    # Training Loop
-    for epoch in train_config.epochs:
-
-
-        start_time = time.time()
-        trainer.model.train()
-
-        train_metrics = {metric.name: 0 for metric in metrics}
-        train_loss    = 0
-
-        train_iterator = tqdm(enumerate(trainDataloader), total = len(trainDataloader), desc = f'Epoch-{epoch+1}:')
-
-        for i, (inputs, masks) in train_iterator:
-            inputs = inputs
-            masks = masks
-
-            for optimizer in trainer.opttimizers:
-                optimizer.zero_grad()
-
-            outputs = trainer.model(inputs)
-            loss = criterion(outputs, masks)
-
-            loss.backward()
-
-            for optimizer in trainer.opttimizers:
-                optimizer.step()
-
-            train_loss += loss.item()
-
-            outputs = torch.argmax(outputs, dim = 1)
-            for metric in metrics:
-                train_metrics[metric.name] += metric.compute(outputs, masks,
-                                                             trainDataloader.dataset.label_to_pixel_value)
-
-            train_iterator.set_postfix({
-                f'{loss.name}_loss' : f'{train_loss/(i+1):.4f}',
-                **{
-                    metric.name : train_metrics[metric.name] for metric in metrics
-                }
-            })
-        
-        train_loss /= len(trainDataloader)
-        train_metrics = {
-            metric.name : value/len(trainDataloader) for metric, value in train_metrics.items()
-        }
-
-        val_loss, val_metrics = validate(valDataloader, trainer, train_config)
-
-        if val_metrics['dice_score'] > best_val_dice:
-            best_val_dice = val_metrics['dice_score']
-            save_checkpoint(trainer.model, trainer.optimizers, epoch,
-                            train_config.checkpoint_dir + f'{config_filename}.pth')
-
-        epoch_time = time.time() - start_time
-        total_training_time += epoch_time
-
-        # Update Logger
-        logger.add_epoch_logs(epoch = epoch, epoch_time = epoch_time,
-                              train_loss = train_loss, train_metrics = train_metrics,
-                              val_loss = val_loss, val_metrics = val_metrics)
-
-    # Save Logs
-    logger.save_train_logs(filename = train_config.log_dir + config_filename + '.csv')
-
-    print(f"Training Completed in {total_training_time:.2f} seconds")
+    trainer.train()
+    
+if __name__ == "__main__":
+    main()

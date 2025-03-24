@@ -3,10 +3,10 @@ from torch import nn
 
 import pandas as pd
 
-def save_checkpoint(model: nn.Module, optimizers, epoch: int, filename: str):
+def save_checkpoint(model: nn.Module, optimizers, epoch: int, filename: str, multi_gpu):
     checkpoint = {
         'epoch': epoch,
-        'model_state_dict': model.state_dict(),
+        'model_state_dict': model.module.state_dict() if multi_gpu else model.state_dict(),
         'optimizers_state_dict': [optimizer.state_dict() for optimizer in optimizers]
     }
     torch.save(checkpoint, filename)
