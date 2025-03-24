@@ -2,6 +2,7 @@ torch
 torchvision
 tqdm
 opencv-python
+nibabel
 numpy
 pandas
 matplotlib
