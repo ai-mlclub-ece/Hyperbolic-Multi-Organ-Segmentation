@@ -1,3 +1,5 @@
+
+import os
 import time
 from tqdm import tqdm
 import argparse
@@ -47,31 +49,43 @@ def parse_args():
     parser.add_argument('--checkpoint-dir', help = 'path to the checkpoint dir')
     parser.add_argument('--log-dir', help = 'path to the log dir')
 
+    parser.add_argument('--single-gpu', action= 'store_true', help= 'use single gpu for training')
+
 
     return parser.parse_args()
 
 class Trainer:
     def __init__(self, train_data : DataLoader,
                  trainer, epochs: int,
-                 validator,
+                 validator, val_data : DataLoader,
                  criterion, metrics,
-                 gpu_id: int,
-                 train_logger):
+                 multi_gpu: bool,
+                 train_logger,
+                 config_filename,
+                 train_config):
         
-        self.gpu_id = gpu_id
+        self.config = train_config
+        self.gpu_id = int(os.environ["LOCAL_RANK"]) if multi_gpu else 0
         
         self.data = train_data
-        self.model : nn.Module = trainer.model
+        self.model : nn.Module = trainer.model.to(self.gpu_id)
         self.criterion = criterion
         self.metrics = metrics
         self.optimizers = trainer.optimizers
         self.epochs = epochs
 
-        self.model = DDP(self.model, device_ids = [gpu_id])
+        self.multi_gpu = multi_gpu
+        if multi_gpu:
+            self.model = DDP(self.model, device_ids = [self.gpu_id])
 
-        self.validator = validator
+        self.validator = validator(
+            val_data = val_data,
+            criterion = criterion,
+            metrics = metrics
+        )
         self.best_val_dice = 0
         self.logger = train_logger
+        self.filename = config_filename
     
     def _run_epoch(self):
 
@@ -97,9 +111,7 @@ class Trainer:
         for log in epoch_logs:
             epoch_logs[log] /= len(self.data)
         
-        # self.logger.add_epoch_logs(
-        #     epoch, 
-        # )
+        return epoch_logs
 
     def _run_batch(self, inputs, masks):
 
@@ -128,10 +140,20 @@ class Trainer:
         self.model.train()
 
         for epoch in self.epochs:
-            self._run_epoch(epoch)
+            epoch_logs = self._run_epoch(epoch)
 
             # Validation
-            self.validator.validate()
+            val_logs = self.validator.validate(model = self.model)
+
+            # Update Logs
+
+            # Save if best model checkpoint
+            if val_logs['dice_score'] > self.best_val_dice:
+                save_checkpoint(self.model, self.optimizers, epoch,
+                                self.checkpoint_dir + self.filename + '.pth',
+                                self.multi_gpu)
+        # Save Logs
+        self.logger.save_train_logs(filename = train_config.log_dir + self.filename + '.csv')
 
         training_time = time.time() - start_time
             
@@ -144,6 +166,9 @@ class Trainer:
 
     
 def main():
+    if not torch.cuda.is_available():
+        raise Exception("Cuda is not available, training on CPU is not Ideal")
+
     args = parse_args().__dict__
 
     all_config = allConfig(**args)
@@ -153,7 +178,14 @@ def main():
 
     train_config = trainConfig(**args)
 
-    trainDataloader, valDataloader = get_dataloaders(config = amosDatasetConfig(**args))
+    multi_gpu = not args['single_gpu']
+
+    if torch.cuda.device_count() == 1:
+        multi_gpu = False
+
+
+    trainDataloader, valDataloader = get_dataloaders(multi_gpu = multi_gpu,
+                                                     config = amosDatasetConfig(**args))
 
     # Model Initialization
     model_trainer = model_trainers[train_config.model]()
@@ -174,6 +206,9 @@ def main():
     else :
         metrics = [all_metrics[train_config.metric]]
 
+    # Logger Initialization
+    logger = trainLogging(metrics = [metric.name for metric in metrics], config = train_config)
+
     trainer = Trainer(
         train_data = trainDataloader,
         trainer = model_trainer,
@@ -181,16 +216,11 @@ def main():
         criterion = criterion,
         metrics = metrics,
         train_logger = logger,
-        # gpu_id = 0
+        multi_gpu = multi_gpu,
+        train_config = train_config
     )
-    # Logger Initialization
-    logger = trainLogging(metrics = [metric.name for metric in metrics], config = train_config)
 
+    trainer.train()
     
-    # Save Logs
-    logger.save_train_logs(filename = train_config.log_dir + config_filename + '.csv')
-
-    # print(f"Training Completed in {total_training_time:.2f} seconds")
-
 if __name__ == "__main__":
     main()

@@ -13,17 +13,13 @@ from utils import criterions, all_metrics
 
 class Validator:
     def __init__(self, val_data : DataLoader,
-                 model, criterion, metrics,
-                 gpu_id: int):
-        
-        self.gpu_id = gpu_id
+                 criterion, metrics):
         
         self.data = val_data
-        self.model : nn.Module = model
         self.criterion = criterion
         self.metrics = metrics
     
-    def validate(self):
+    def validate(self, model):
 
         # Initialize logs to 0
         logs : dict = {
@@ -31,7 +27,7 @@ class Validator:
             **{metric.name: 0 for metric in self.metrics}
         }
 
-        self.model.eval()
+        model.eval()
         
         with torch.no_grad():
         # Validate on all Batches
@@ -39,7 +35,7 @@ class Validator:
                 inputs = inputs.to(self.gpu_id)
                 masks = masks.to(self.gpu_id)
 
-                loss, metrics = self._run_batch(inputs, masks)
+                loss, metrics = self._run_batch(model, inputs, masks)
 
                 # Accumulate Logs
                 logs['train_loss'] += loss
@@ -52,9 +48,9 @@ class Validator:
 
         return logs
 
-    def _run_batch(self, inputs, masks):
+    def _run_batch(self, model, inputs, masks):
 
-        outputs = self.model(inputs)
+        outputs = model(inputs)
         loss = self.criterion(outputs, masks)
 
         outputs = torch.argmax(outputs, dim = 1)

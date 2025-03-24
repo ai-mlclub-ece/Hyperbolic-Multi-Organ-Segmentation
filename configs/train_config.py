@@ -13,6 +13,7 @@ class trainConfig(Config):
         self.model: str = ''
         self.metric: str = ''
         self.epochs: int = 0
+        self.multi_gpu : bool = None
         self.checkpoint_dir: str = ''
         self.log_dir: str = ''
 
@@ -29,6 +30,7 @@ class trainConfig(Config):
         self.model = 'UNet'
         self.metric = 'all'
         self.epochs = 10
+        self.multi_gpu = False
         self.checkpoint_dir = 'checkpoints/'
         self.log_dir = 'logs/'
 
