@@ -1,10 +1,10 @@
-from config import Config
-from dataset_config import amosDatasetConfig
+from .config import Config
+from .dataset_config import amosDatasetConfig
 from torch.optim import Adam
-from geoopt.optim import ReimannianAdam
+import geoopt
 
 
-class unetConfig(Config, amosDatasetConfig):
+class unetConfig(amosDatasetConfig):
     def __init__(self, **args):
         super().__init__(**args)
 
@@ -17,11 +17,11 @@ class unetConfig(Config, amosDatasetConfig):
     def set_default(self):
         super().set_default()
 
-        self.optimizer = Adam
+        self.optimizer = 'Adam'
         self.learning_rate: float = 10e-4
 
 
-class hc_unetConfig(Config, amosDatasetConfig):
+class hc_unetConfig(amosDatasetConfig):
     def __init__(self, **args):
         super().__init__(**args)
 
@@ -37,7 +37,7 @@ class hc_unetConfig(Config, amosDatasetConfig):
     def set_default(self):
         super().set_default()
 
-        self.optimizers: list = [Adam, ReimannianAdam]
+        self.optimizers: list = ['Adam', 'RiemannianAdam']
         self.learning_rate: float = 10e-4
         self.embedding_dim: int = 256
         self.curvature: float = 0.1

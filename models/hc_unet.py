@@ -4,10 +4,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from unet import unet_backbone
+from .unet import unet_backbone
 from utils import exp_map_zero
 
 from configs import Config, hc_unetConfig
+from torch.optim import Adam
+from geoopt.optim import RiemannianAdam
 
 class HyperbolicLogisticRegression(nn.Module):
     def __init__(self, num_classes: int, embedding_dim: int, c: float, lambda_cp: float):
@@ -162,8 +164,8 @@ class HCUNetTrainer:
                             curvature = config.curvature,
                             lambda_cp = config.lambda_cp)
         
-        self.optimizers = [config.optimizers[0](self.model.unet.parameters(), lr = config.learning_rate),
-                           config.optimizers[1](self.model.classifier.parameters(), lr = config.learning_rate)]
+        self.optimizers = [Adam(self.model.unet.parameters(), lr = config.learning_rate),
+                           RiemannianAdam(self.model.classifier.parameters(), lr = config.learning_rate)]
         
 if __name__ == "__main__":
     model = HCUNet(num_classes=3,

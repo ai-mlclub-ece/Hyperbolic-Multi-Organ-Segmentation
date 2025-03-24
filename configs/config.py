@@ -11,7 +11,7 @@ class Config:
 
     def set_args(self, **args):
         for key, value in args.items():
-            if hasattr(self, key) & value is not None:
+            if hasattr(self, key) & (value is not None):
                 setattr(self, key, value)
 
     def save_config(self, filename: str):

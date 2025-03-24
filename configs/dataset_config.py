@@ -1,4 +1,4 @@
-from config import Config
+from .config import Config
 
 class amosDatasetConfig(Config):
     def __init__(self, **args):
@@ -23,14 +23,14 @@ class amosDatasetConfig(Config):
 
         self.mode : str = 'train'
         self.data_dir: str = ''
-        self.jsonPath: str = ''
+        self.json_path: str = ''
         self.split   : str = 'training'
         self.img_size: tuple[int,int] = (512, 512)
         self.labels  : list[str] = ['liver', 'pancreas', 'spleen']
         self.window  : tuple[int,int] = None
         self.window_preset : str = 'ct_abdomen'
         self.transform : bool = False
-        self.batch_size: int = 16
+        self.batch_size: int = 1
 
 
         

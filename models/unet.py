@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from configs import Config, unetConfig
+from torch.optim import Adam
 
 class unet_backbone(nn.Module):
     def __init__(self, out_channels: int):
@@ -148,9 +149,9 @@ class UNet(nn.Module):
         return self.final_activation(x)
     
 class UNetTrainer:
-    def __init__(self, config: Config):
+    def __init__(self, config: Config = unetConfig()):
         self.model = UNet(num_classes = len(config.labels))
-        self.optimizers = config.optimizer(self.model.parameters(), lr = config.learning_rate)
+        self.optimizers = [Adam(self.model.parameters(), lr = config.learning_rate)]
         
 if __name__ == "__main__":
     model = UNet(num_classes=3)
