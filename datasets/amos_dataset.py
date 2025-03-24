@@ -7,6 +7,7 @@ from tqdm import tqdm
 
 import pandas as pd
 import numpy as np
+from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 import nibabel as nib
 
@@ -202,8 +203,8 @@ class AMOS_Preprocess:
 
             img (np.ndarray): The normalized image
         """
-        return (img - img.min()) / (img.max() - img.min())
-    
+        return MinMaxScaler(feature_range = (0, 1)).fit_transform(img).astype(np.float32)
+       
     def resize(self, img: np.ndarray, target_shape: tuple[int, int] = (512, 512), label: bool = False) -> np.ndarray:
         """
         Resize the image to the target shape
