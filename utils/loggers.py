@@ -6,7 +6,7 @@ class trainLogging:
 
         self.config = config
 
-        columns = ['epoch', 'epoch_time', 'train_loss', 'val_loss']
+        columns = ['epoch', 'train_loss', 'val_loss']
 
         train_metric_cols = ['train_' + metric for metric in metrics]
         val_metric_cols = ['val_' + metric for metric in metrics]
@@ -14,11 +14,10 @@ class trainLogging:
         columns = columns + train_metric_cols + val_metric_cols
         self.logs: pd.DataFrame = pd.DataFrame(columns = columns)
 
-    def add_epoch_logs(self, epoch, epoch_time, train_loss, train_metrics, val_loss, val_metrics):
+    def add_epoch_logs(self, epoch, train_loss, train_metrics, val_loss, val_metrics):
         
         epoch_row = {
             'epoch': epoch,
-            'epoch_time': epoch_time,
             'train_loss': train_loss,
             'val_loss': val_loss
         }

@@ -1,65 +1,67 @@
-from configs import *
+
 
 import torch
-from torch.utils.data import DataLoader
-from datasets import get_dataloaders
-import tqdm
+import torch.nn as nn
+from torch.utils.data import DataLoader, DistributedSampler
+from torch.nn.parallel import DistributedDataParallel as DDP
 
+from configs import *
+from datasets import get_dataloaders
 from models import trainers
 from utils import criterions, all_metrics
 
 
-
-def validate(valDataloader: DataLoader, trainer, config):
-
-
-    if len(config.loss_list) is not None:
-        criterion = criterions['combined'](
-            loss_list = config.loss_list,
-            weights = config.weights
-        )
-    else:
-        criterion = criterions[config.loss]()
-
-    with torch.no_grad():
-        trainer.model.eval()
-
-
-        if config.metric == 'all':
-            metrics = [metric() for metric in all_metrics.values()]
-        else :
-            metrics = [all_metrics[config.metric]]
-
-        val_metrics = {metric.name: 0 for metric in metrics}
-        val_loss    = 0
-
-        val_iterator = tqdm(enumerate(valDataloader), total = len(valDataloader), desc = f'Epoch-{epoch+1}:')
-
-        for i, (inputs, masks) in val_iterator:
-            inputs = inputs
-            masks = masks
-
-            outputs = trainer.model(inputs)
-            loss = criterion(outputs, masks)
-
-
-            val_loss += loss.item()
-
-            outputs = torch.argmax(outputs, dim = 1)
-            for metric in metrics:
-                val_metrics[metric.name] += metric.compute(outputs, masks,
-                                                             valDataloader.dataset.label_to_pixel_value)
-
-            val_iterator.set_postfix({
-                f'{loss.name}_loss' : f'{val_loss/(i+1):.4f}',
-                **{
-                    metric.name : val_metrics[metric.name] for metric in metrics
-                }
-            })
+class Validator:
+    def __init__(self, val_data : DataLoader,
+                 model, criterion, metrics,
+                 gpu_id: int):
         
-        val_loss /= len(valDataloader)
-        val_metrics = {
-            metric.name : value/len(valDataloader) for metric, value in val_metrics.items()
+        self.gpu_id = gpu_id
+        
+        self.data = val_data
+        self.model : nn.Module = model
+        self.criterion = criterion
+        self.metrics = metrics
+    
+    def validate(self):
+
+        # Initialize logs to 0
+        logs : dict = {
+            'val_loss' : 0,
+            **{metric.name: 0 for metric in self.metrics}
         }
 
-    return val_loss, val_metrics
+        self.model.eval()
+        
+        with torch.no_grad():
+        # Validate on all Batches
+            for inputs, masks in self.data:
+                inputs = inputs.to(self.gpu_id)
+                masks = masks.to(self.gpu_id)
+
+                loss, metrics = self._run_batch(inputs, masks)
+
+                # Accumulate Logs
+                logs['train_loss'] += loss
+                for metric in metrics:
+                    logs[metric.name] += metrics[metric]
+
+        # Compute Average for all logs 
+        for log in logs:
+            logs[log] /= len(self.data)
+
+        return logs
+
+    def _run_batch(self, inputs, masks):
+
+        outputs = self.model(inputs)
+        loss = self.criterion(outputs, masks)
+
+        outputs = torch.argmax(outputs, dim = 1)
+
+        metrics = {}
+        for metric in self.metrics:
+            metrics[metric.name] += metric.compute(outputs, masks,
+                                                   self.data.dataset.label_to_pixel_value)[1]
+            
+        return loss.item(), metrics
