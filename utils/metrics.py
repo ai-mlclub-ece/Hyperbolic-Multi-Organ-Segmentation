@@ -4,15 +4,16 @@ class baseMetric:
     def __init__(self):
         pass
 
-    def metric(preds, masks):
+    def metric(self, preds, masks):
         pass
 
     def compute(self, preds, masks, labels_to_pixels: dict):
         scores = {}
+        
         for label, pixel_value in labels_to_pixels.items():
             pred = preds[preds == pixel_value].float()
             mask = masks[masks == pixel_value].float()
-
+            
             scores[label] =  self.metric(pred, mask)
 
         return scores, sum(scores.values())/len(labels_to_pixels)
@@ -22,7 +23,7 @@ class dicescore(baseMetric):
         
         self.name = 'dice_score'
 
-    def metric(preds, masks, smooth=1e-6):
+    def metric(self, preds, masks, smooth=1e-6):
         """
         Evaluates the dice coefficient for the predicted and target masks
         
@@ -34,6 +35,7 @@ class dicescore(baseMetric):
         Returns:
             dice_score: dice coefficient
         """
+        
         intersection = torch.sum(preds * masks, dim=(1,2,3))
         union = torch.sum(preds, dim=(1,2,3)) + torch.sum(masks, dim=(1,2,3))
 
@@ -47,7 +49,7 @@ class miou(baseMetric):
         
         self.name = 'miou'
 
-    def metric(preds, targets):
+    def metric(self, preds, targets):
         """
         Evaluates the mean Intersection over Union (mIoU) for the predicted and target masks
 
@@ -72,7 +74,7 @@ class precision(baseMetric):
         
         self.name = 'precision'
 
-    def metric(preds, targets):
+    def metric(self, preds, targets):
         """
         Evaluates the precision for the predicted and target masks
 
@@ -97,7 +99,7 @@ class recall(baseMetric):
         
         self.name = 'recall'
         
-    def metric(preds, targets):
+    def metric(self, preds, targets):
         """
         Evaluates the recall for the predicted and target masks
 
