@@ -183,7 +183,7 @@ def main():
     all_config = allConfig(**args)
 
     config_filename = all_config.get_config_filename()
-    all_config.save_config(args['data_dir'] + config_filename)
+    all_config.save_config(config_filename)
 
     train_config = trainConfig(**args)
 
