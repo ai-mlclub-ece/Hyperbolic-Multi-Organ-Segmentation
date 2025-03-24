@@ -1,0 +1,6 @@
+__pycache__/
+configs/__pycache__/
+datasets/__pycache__/
+models/__pycache__/
+training_scripts/__pycache__/
+utils/__pycache__/
