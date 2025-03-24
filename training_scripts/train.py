@@ -107,7 +107,7 @@ class Trainer:
             # Accumulate Logs
             epoch_logs['loss'] += loss
             for metric in metrics:
-                epoch_logs[metric.name] += metrics[metric]
+                epoch_logs[metric] += metrics[metric]
 
         # Compute Average for all logs 
         for log in epoch_logs:
@@ -130,9 +130,9 @@ class Trainer:
 
         outputs = torch.argmax(outputs, dim = 1)
 
-        metrics = {}
+        metrics = {metric.name: 0 for metric in self.metrics}
         for metric in self.metrics:
-            metrics[metric.name] += metric.compute(outputs, masks,
+            metrics[metric.name] += metric.compute(outputs, masks.squeeze(1),
                                                    self.data.dataset.label_to_pixel_value)[1]
             
         return loss.item(), metrics
@@ -203,11 +203,12 @@ def main():
     if args['loss_list'] is not None:
         criterion = criterions['combined'](
             loss_list = train_config.loss_list,
-            weights = train_config.weights
+            weights = train_config.weights,
+            labels_to_pixels = trainDataloader.dataset.label_to_pixel_value
         )
         train_config.loss = 'combined'
     else:
-        criterion = criterions[train_config.loss]()
+        criterion = criterions[train_config.loss](labels_to_pixels = trainDataloader.dataset.label_to_pixel_value)
     
     # Metric Initialization
     if train_config.metric == 'all':
