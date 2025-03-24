@@ -1,14 +1,5 @@
-
-
 import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader, DistributedSampler
-from torch.nn.parallel import DistributedDataParallel as DDP
-
-from configs import *
-from datasets import get_dataloaders
-from models import trainers
-from utils import criterions, all_metrics
+from torch.utils.data import DataLoader
 
 
 class Validator:

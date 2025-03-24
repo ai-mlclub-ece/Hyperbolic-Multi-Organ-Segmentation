@@ -1,12 +1,9 @@
-from config import Config
-from config import lossConfig
-from dataset_config import amosDatasetConfig
-from models_config import unetConfig, hc_unetConfig
+from .config import lossConfig
 
 import os
 
 
-class trainConfig(Config):
+class trainConfig(lossConfig):
     def __init__(self, **args):
         super().__init__(**args)
 
@@ -27,7 +24,7 @@ class trainConfig(Config):
 
     def set_default(self):
         super().set_default()
-        self.model = 'UNet'
+        self.model = 'unet'
         self.metric = 'all'
         self.epochs = 10
         self.multi_gpu = False

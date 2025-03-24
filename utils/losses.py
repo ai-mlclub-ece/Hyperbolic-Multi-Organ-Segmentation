@@ -41,7 +41,7 @@ class DiceLoss(nn.Module):
 
 
 class HyperUL(nn.Module):
-    def __init__(self, c=c,  t=2.718, hr=1.0):
+    def __init__(self, c= 0.1,  t=2.718, hr=1.0):
         super(HyperUL, self).__init__()
         self.name = 'hyperul'
         self.c = torch.tensor(c).float()
@@ -100,7 +100,7 @@ class JaccardLoss(nn.Module):
     
 
 class hyperbolicdistance(nn.Module):
-    def __init__(self, c=c):
+    def __init__(self, c=0.1):
         super(hyperbolicdistance, self).__init__()
         self.name = 'hyperbolic_distance'
         pass

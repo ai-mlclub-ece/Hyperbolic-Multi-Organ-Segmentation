@@ -59,7 +59,7 @@ class dataIngestion:
             return nib.load(path).get_fdata().transpose(2, 1, 0)
 
     
-    def getSliceinfo(self, data_dir: str, dataframe_dir: str, split: str = "training") -> pd.DataFrame:
+    def getSliceinfo(self, data_dir: str, split: str = "training") -> pd.DataFrame:
         """
         Get the slice information of the given split of the dataset
 
@@ -73,9 +73,9 @@ class dataIngestion:
 
             sliceinfo (pd.DataFrame): A dataframe containing the slice information of the dataset
         """
-        if os.path.exists(dataframe_dir + f"{split}_sliceinfo.csv"):
-            sliceinfo = pd.read_csv(dataframe_dir + f"{split}_sliceinfo.csv")
-            print(f"Loaded {split} set from {dataframe_dir}...")
+        if os.path.exists(data_dir + f"{split}_sliceinfo.csv"):
+            sliceinfo = pd.read_csv(data_dir + f"{split}_sliceinfo.csv")
+            print(f"Loaded {split} set DataFrame...")
             return sliceinfo
         else:
             print(f"Loading {split} set...")
@@ -102,7 +102,7 @@ class dataIngestion:
                 sliceinfo = pd.concat([sliceinfo, row], ignore_index=True)
             
             print(f"Total number of slices in {split} set: {sliceinfo.shape[0]}")
-            sliceinfo.to_csv(dataframe_dir + f"{split}_sliceinfo.csv", index=False)
+            sliceinfo.to_csv(data_dir + f"{split}_sliceinfo.csv", index=False)
             
             return sliceinfo
 
@@ -121,7 +121,7 @@ class dataIngestion:
         img = self.loadVolume(random_row["imgPath"], transpose = True)[random_row["slice_idx"]]
         label = self.loadVolume(random_row["labelPath"], transpose = True)[random_row["slice_idx"]]
 
-        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+        _, ax = plt.subplots(1, 2, figsize=(10, 5))
         ax[0].imshow(img, cmap="gray")
         ax[0].set_title("Image")
         ax[0].axis("off")
@@ -253,21 +253,22 @@ class AMOS_Preprocess:
         mask = self.getOrganmasks(mask, labels = labels)
         mask = self.resize(mask, img_size, label=True)
 
-        return torch.tensor(img).unsqueeze(0), torch.tensor(mask).unsqueeze(0)
+        return torch.tensor(img).unsqueeze(0).to(torch.float32), torch.tensor(mask).unsqueeze(0).to(torch.float32)
     
 class AMOS_Dataset(Dataset):
     def __init__(self, data_dir: str,
-                 jsonPath: str,
+                 json_path: str,
                  split: str = "training",
                  img_size: tuple[int, int] = (512, 512),
                  labels: list[str] = ["liver", "pancreas", "spleen"],
                  window: tuple[int, int] = None,
                  window_preset: str = 'ct_abdomen',
-                 transform: bool = False):
+                 transform: bool = False,
+                 **args):
                  
         self.data_dir = data_dir
-        self.dataIngestor = dataIngestion(jsonPath)
-        self.preprocessor = AMOS_Preprocess(jsonPath)
+        self.dataIngestor = dataIngestion(json_path)
+        self.preprocessor = AMOS_Preprocess(json_path)
         self.data = self.dataIngestor.getSliceinfo(data_dir, split)
 
         self.img_size = img_size
@@ -276,7 +277,6 @@ class AMOS_Dataset(Dataset):
         self.window_preset = window_preset
 
         self.transform = transforms.Compose([
-            transforms.ToTensor(),
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(),
             transforms.RandomRotation(90),

@@ -1,10 +1,8 @@
 torch
 torchvision
 tqdm
-cv2
-json
+opencv-python
 numpy
 pandas
 matplotlib
-scikit-learn
 geoopt
