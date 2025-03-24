@@ -91,7 +91,7 @@ class Trainer:
 
         # Initialize epoch logs to 0
         epoch_logs : dict = {
-            'train_loss' : 0,
+            'loss' : 0,
             **{metric.name: 0 for metric in self.metrics}
         }
 
@@ -103,7 +103,7 @@ class Trainer:
             loss, metrics = self._run_batch(inputs, masks)
 
             # Accumulate Logs
-            epoch_logs['train_loss'] += loss
+            epoch_logs['loss'] += loss
             for metric in metrics:
                 epoch_logs[metric.name] += metrics[metric]
 
@@ -146,6 +146,7 @@ class Trainer:
             val_logs = self.validator.validate(model = self.model)
 
             # Update Logs
+            self.logger.add_epoch_logs(epoch, epoch_logs, val_logs)
 
             # Save if best model checkpoint
             if val_logs['dice_score'] > self.best_val_dice:

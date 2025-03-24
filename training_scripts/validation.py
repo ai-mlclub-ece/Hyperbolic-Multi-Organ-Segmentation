@@ -23,7 +23,7 @@ class Validator:
 
         # Initialize logs to 0
         logs : dict = {
-            'val_loss' : 0,
+            'loss' : 0,
             **{metric.name: 0 for metric in self.metrics}
         }
 
@@ -38,7 +38,7 @@ class Validator:
                 loss, metrics = self._run_batch(model, inputs, masks)
 
                 # Accumulate Logs
-                logs['train_loss'] += loss
+                logs['loss'] += loss
                 for metric in metrics:
                     logs[metric.name] += metrics[metric]
 
