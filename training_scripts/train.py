@@ -8,7 +8,9 @@ import argparse
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.distributed import init_process_group
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -171,6 +173,8 @@ class Trainer:
 
     
 def main():
+    init_process_group(backend='nccl')
+    
     args = parse_args().__dict__
 
     if args['data_dir'] is None or '':
@@ -179,7 +183,6 @@ def main():
     if not torch.cuda.is_available():
         raise Exception("Cuda is not available, training on CPU is not Ideal")
         
-
     all_config = allConfig(**args)
 
     config_filename = all_config.get_config_filename()
