@@ -31,6 +31,7 @@ def parse_args():
     parser.add_argument('--dataset', help = 'name of the dataset')
 
     parser.add_argument('--data-dir', type = str, help = 'path to the dataset dir')
+    parser.add_argument('--all-configs-dir', type = str, help = 'path to the all configs dir')
     parser.add_argument('--split', type = str, choices = ['training', 'validation', 'inference'], help = "choose between 'training', 'validation', 'inference'")
     parser.add_argument('--image-size', type = int, nargs = 2, help = 'dimensions of image') 
     parser.add_argument('--labels', type = str, nargs = '*', help = 'list of labels to be segmented')
