@@ -96,7 +96,7 @@ class dataIngestion:
 
                 row = pd.DataFrame({
                     "imgPath": [data_dir + imgPath[1:]] * slices,
-                    "labelPath": [data_dir + labelPath[1:]] * slices,
+                    "labelPath": [data_dir + labelPath[1:]] * slices if split != 'test' else None,
                     "slice_idx": range(slices)
                 })
 
@@ -311,4 +311,4 @@ if __name__ == "__main__":
     data_dir = sys.argv[1]
     jsonPath = sys.argv[2]
 
-    dataset = AMOS_Dataset(data_dir, jsonPath, split="training")
+    dataset = AMOS_Dataset(data_dir, jsonPath, split="test")
