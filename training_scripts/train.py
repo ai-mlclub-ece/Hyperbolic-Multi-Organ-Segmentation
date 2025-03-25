@@ -82,7 +82,8 @@ class Trainer:
         self.validator = validator(
             val_data = val_data,
             criterion = criterion,
-            metrics = metrics
+            metrics = metrics,
+            multi_gpu = multi_gpu
         )
         self.best_val_dice = 0
         self.logger = train_logger
@@ -158,7 +159,7 @@ class Trainer:
                                 self.checkpoint_dir + self.filename + '.pth',
                                 self.multi_gpu)
         # Save Logs
-        self.logger.save_train_logs(filename = self.train_config.log_dir + self.filename + '.csv')
+        self.logger.save_train_logs(filename = self.config.log_dir + self.filename + '.csv')
 
         training_time = time.time() - start_time
             
@@ -183,7 +184,7 @@ def main():
     all_config = allConfig(**args)
 
     config_filename = all_config.get_config_filename()
-    all_config.save_config(config_filename)
+    all_config.save_config(all_config.all_configs_dir + config_filename)
 
     train_config = trainConfig(**args)
 

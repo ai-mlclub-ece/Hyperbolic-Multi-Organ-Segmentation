@@ -35,4 +35,4 @@ class allConfig(Config):
         filename = f"{self.train_config['model']}_{self.train_config['loss']}-v{self.version}"
         if os.path.exists(self.all_configs_dir + f"{filename}.json"):
             filename = f"{self.train_config['model']}_{self.train_config['loss']}-v{self.version + 1}"
-        return self.all_configs_dir + filename
+        return filename

@@ -26,7 +26,7 @@ class trainConfig(lossConfig):
         super().set_default()
         self.model = 'unet'
         self.metric = 'all'
-        self.epochs = 10
+        self.epochs = 3
         self.multi_gpu = False
         self.checkpoint_dir = 'checkpoints/'
         self.log_dir = 'logs/'

@@ -21,7 +21,7 @@ class trainLogging:
         epoch_row.update({f'train_{metric}': value for metric, value in train_logs.items()})
         epoch_row.update({f'val_{metric}' : value for metric, value in val_logs.items()})
 
-        self.logs = self.logs.append(epoch_row, ignore_index=True)
+        self.logs = pd.concat([self.logs, pd.DataFrame([epoch_row])], ignore_index=True)
 
     def save_train_logs(self, filename: str = None):
         self.logs = self.logs.sort_values(by = 'epoch')

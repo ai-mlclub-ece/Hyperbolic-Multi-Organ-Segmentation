@@ -30,7 +30,7 @@ class amosDatasetConfig(Config):
         self.window  : tuple[int,int] = None
         self.window_preset : str = 'ct_abdomen'
         self.transform : bool = False
-        self.batch_size: int = 1
+        self.batch_size: int = 4
 
 
         

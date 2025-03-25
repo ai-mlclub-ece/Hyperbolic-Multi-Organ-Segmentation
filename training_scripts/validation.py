@@ -4,8 +4,8 @@ from torch.utils.data import DataLoader
 
 class Validator:
     def __init__(self, val_data : DataLoader,
-                 criterion, metrics):
-        
+                 criterion, metrics, multi_gpu):
+        self.gpu_id = int(os.environ["LOCAL_RANK"]) if multi_gpu else 0
         self.data = val_data
         self.criterion = criterion
         self.metrics = metrics
