@@ -10,7 +10,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.distributed import init_process_group
+from torch.distributed import init_process_group, destroy_process_group
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -174,7 +174,7 @@ class Trainer:
     
 def main():
     init_process_group(backend='nccl')
-    
+
     args = parse_args().__dict__
 
     if args['data_dir'] is None or '':
@@ -241,6 +241,8 @@ def main():
     )
 
     trainer.train()
+
+    destroy_process_group()
     
 if __name__ == "__main__":
     main()
