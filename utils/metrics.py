@@ -1,27 +1,33 @@
 import torch
+import matplotlib.pyplot as plt
 
 class baseMetric:
-    def __init__(self):
-        pass
+    def __init__(self, labels, labels_to_pixels):
+        self.labels = labels
+        self.labels_to_pixels = labels_to_pixels
 
     def metric(self, preds, masks):
         pass
 
-    def compute(self, preds, masks, labels_to_pixels: dict):
+    def compute(self, preds, masks):
         scores = {}
         
-        for label, pixel_value in labels_to_pixels.items():
-            pred = preds[preds == pixel_value].float()
-            mask = masks[masks == pixel_value].float()
+        for label in self.labels:
+
+            pred = (preds == self.labels_to_pixels[label]).float()
+            mask = (masks == self.labels_to_pixels[label]).float()
             
             scores[label] =  self.metric(pred, mask)
 
-        return scores, sum(scores.values())/len(labels_to_pixels)
+        return scores, sum(scores.values())/len(self.labels)
 
 class dicescore(baseMetric):
-    def __init__(self):
+    def __init__(self, labels, labels_to_pixels):
         
         self.name = 'dice_score'
+
+        self.labels = labels
+        self.labels_to_pixels = labels_to_pixels
 
     def metric(self, preds, masks, smooth=1e-6):
         """
@@ -35,9 +41,9 @@ class dicescore(baseMetric):
         Returns:
             dice_score: dice coefficient
         """
-        
-        intersection = torch.sum(preds * masks, dim=(1,2,3))
-        union = torch.sum(preds, dim=(1,2,3)) + torch.sum(masks, dim=(1,2,3))
+
+        intersection = torch.sum(preds * masks, dim=(1,2))
+        union = torch.sum(preds, dim=(1,2)) + torch.sum(masks, dim=(1,2))
 
         dice_score = (2. * intersection + smooth) / (union + smooth)
 
@@ -45,9 +51,12 @@ class dicescore(baseMetric):
     
 
 class miou(baseMetric):
-    def __init__(self):
+    def __init__(self, labels, labels_to_pixels):
         
         self.name = 'miou'
+
+        self.labels = labels
+        self.labels_to_pixels = labels_to_pixels
 
     def metric(self, preds, targets):
         """
@@ -63,16 +72,19 @@ class miou(baseMetric):
     
         targets = targets.float()
 
-        intersection = (preds * targets).sum(dim=(1,2,3))
-        union = (preds + targets).sum(dim=(1,2,3)) - intersection 
+        intersection = (preds * targets).sum(dim=(1,2))
+        union = (preds + targets).sum(dim=(1,2)) - intersection 
 
         iou = (intersection + 1e-8) / (union + 1e-8)
         return iou.mean().item()
     
 class precision(baseMetric):
-    def __init__(self):
+    def __init__(self, labels, labels_to_pixels):
         
         self.name = 'precision'
+
+        self.labels = labels
+        self.labels_to_pixels = labels_to_pixels
 
     def metric(self, preds, targets):
         """
@@ -95,9 +107,12 @@ class precision(baseMetric):
         return precision.item()
     
 class recall(baseMetric):
-    def __init__(self):
+    def __init__(self, labels, labels_to_pixels):
         
         self.name = 'recall'
+
+        self.labels = labels
+        self.labels_to_pixels = labels_to_pixels
         
     def metric(self, preds, targets):
         """
