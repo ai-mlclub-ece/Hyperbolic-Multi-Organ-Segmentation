@@ -42,4 +42,18 @@ python3 -m pip install --upgrade pip
 pip install -r Hyperbolic-Multi-Organ-Segmentation/requirements.txt
 ```
 
-### 
+### Training
+
+To train using 2 GPUs use this :
+```
+torchrun --nnodes=1 --nporc_per_node=2 \
+--rdzv_id=123 --rdzv_backend=c10d --max_restarts=0 \
+Hyperbolic-Multi-Organ-Segmentation/training_scripts/train.py \
+--mode train --data-dir "amos22/" \
+--image-size 512 512 --window-preset "ct_abdomen" \
+--model unet --loss cross_entropy \
+--epochs 10 --batch-size 16 
+```
+
+**Note:** Make sure you extracted dataset(amos22.zip) in current working directory, from [here](https://zenodo.org/records/7262581)
+
