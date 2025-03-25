@@ -159,8 +159,8 @@ class AMOS_Preprocess:
         """
         organ_masks = np.zeros_like(masks)
 
-        for label in labels:
-            organ_masks[masks == self.label_to_pixel_value[label]] = self.label_to_pixel_value[label]
+        for i, label in enumerate(labels):
+            organ_masks[masks == self.label_to_pixel_value[label]] = i + 1
 
         return organ_masks
     
@@ -283,7 +283,7 @@ class AMOS_Dataset(Dataset):
             transforms.RandomRotation(90),
         ]) if transform else None
 
-        self.label_to_pixel_value = self.preprocessor.label_to_pixel_value
+        self.label_to_pixel_value = {'background' : 0, **{label: (i + 1) for i, label in enumerate(labels)}}
 
     def __len__(self):
         return len(self.data)
