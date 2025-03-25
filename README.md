@@ -1,5 +1,4 @@
 # Hyperbolic Multi Organ Segmentation
----
 
 ## Abstract
 
@@ -17,3 +16,14 @@ To train the architectures in this repo, firstly clone this repository.
 git clone https://github.com/ai-mlclub-ece/Hyperbolic-Multi-Organ-Segmentation.git
 ```
 
+### Installing libraries
+
+To avoid conflicts between library versions, install these requirements:
+```
+python3 -m venv venv
+source venv/bin/activate
+python3 -m pip install --upgrade pip
+pip install -r Hyperbolic-Multi-Organ-Segmentation/requirements.txt
+```
+
+### 
