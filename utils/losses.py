@@ -3,10 +3,13 @@ import torch
 import torch.nn.functional as F
 
 class CrossEntropyLoss(nn.Module):
-    def __init__(self, labels_to_pixels: dict):
+    def __init__(self, labels : list, labels_to_pixels: dict):
         super(CrossEntropyLoss, self).__init__()
         self.name = 'cross_entropy'
+
+        self.labels = labels
         self.labels_to_pixels = labels_to_pixels
+
         self.ce = nn.CrossEntropyLoss()
 
     def forward(self, x, y):
@@ -19,9 +22,11 @@ class CrossEntropyLoss(nn.Module):
         return self.ce(x, y)
 
 class DiceLoss(nn.Module):
-    def __init__(self, labels_to_pixels: dict):
+    def __init__(self, labels : list, labels_to_pixels: dict):
         super(DiceLoss, self).__init__()
         self.name = 'dice'
+
+        self.labels = labels
         self.labels_to_pixels = labels_to_pixels
 
     def forward(self, preds, masks):
@@ -32,32 +37,78 @@ class DiceLoss(nn.Module):
         return: Dice loss
         """
         losses = {}
-        for label, pixel_value in self.labels_to_pixels.items():
-            pred = preds[preds == pixel_value].float()
-            mask = masks[masks == pixel_value].float()
+        masks.squeeze(1)
+        for i, label in enumerate(self.labels_to_pixels):
+
+            pred = preds[:, i, :, :].float()
+
+            masking = masks == self.labels_to_pixels[label]
+            
+            mask = masks[masking].float().view(pred.shape) if masking.sum() > 0 else torch.zeros_like(pred)
 
             losses[label] =  self.dice_coefficient(pred, mask)
 
-        dice_score = sum(losses.values())/len(self.labels_to_pixels)
+        dice_score = sum(losses.values())/len(self.labels)
 
         return 1 - dice_score
 
     def dice_coefficient(self, preds, masks, smooth=1e-6):
-        intersection = torch.sum(preds * masks, dim=(1,2,3))
-        union = torch.sum(preds, dim=(1,2,3)) + torch.sum(masks, dim=(1,2,3))
+        intersection = torch.sum(preds * masks, dim=(1,2))
+        union = torch.sum(preds, dim=(1,2)) + torch.sum(masks, dim=(1,2))
 
         dice_score = (2. * intersection + smooth) / (union + smooth)
 
         return dice_score.mean()
+    
+class JaccardLoss(nn.Module):
+    def __init__(self, labels : list, labels_to_pixels: dict):
+        super(JaccardLoss, self).__init__()
+        self.name = 'jaccard'
 
+        self.labels = labels
+        self.labels_to_pixels = labels_to_pixels
 
+    def miou(self, preds, masks, smooth=1e-6):
+        intersection = torch.sum(preds * masks, dim=(1,2))
+        union = torch.sum(preds + masks, dim=(1,2)) - intersection
+
+        iou = (intersection + smooth) / (union + smooth)
+        
+        return iou.mean()
+    
+    def forward(self, x, y):
+        """
+        x: output of the model
+        y: target
+        
+        return: Jaccard loss
+        """
+        
+        losses = {}
+        masks.squeeze(1)
+        for i, label in enumerate(self.labels_to_pixels):
+
+            pred = preds[:, i, :, :].float()
+
+            masking = masks == self.labels_to_pixels[label]
+            
+            mask = masks[masking].float().view(pred.shape) if masking.sum() > 0 else torch.zeros_like(pred)
+
+            losses[label] =  self.miou(pred, mask)
+
+        miou = sum(losses.values())/len(self.labels)
+
+        return 1 - miou
+    
 class HyperUL(nn.Module):
-    def __init__(self,  labels_to_pixels: dict, c= 0.1,  t=2.718, hr=1.0):
+    def __init__(self, labels : list, labels_to_pixels: dict, c= 0.1,  t=2.718, hr=1.0):
         super(HyperUL, self).__init__()
         self.name = 'hyperul'
         self.c = torch.tensor(c).float()
         self.t = t
         self.hr = hr
+
+        self.labels = labels
         self.labels_to_pixels = labels_to_pixels
 
     def forward(self, logits, targets):  
@@ -87,46 +138,14 @@ class HyperUL(nn.Module):
         else:
             hyperul = (uncertainty_weights * ce_loss).mean()
         return hyperul
-    
-class JaccardLoss(nn.Module):
-    def __init__(self, labels_to_pixels: dict):
-        super(JaccardLoss, self).__init__()
-        self.name = 'jaccard'
-        self.labels_to_pixels = labels_to_pixels
-
-    def miou(self, preds, masks, smooth=1e-6):
-        intersection = torch.sum(preds * masks, dim=(1,2,3))
-        union = torch.sum(preds + masks, dim=(1,2,3)) - intersection
-
-        iou = (intersection + smooth) / (union + smooth)
-        
-        return iou.mean()
-    
-    def forward(self, x, y):
-        """
-        x: output of the model
-        y: target
-        
-        return: Jaccard loss
-        """
-        
-        losses = {}
-        for label, pixel_value in self.labels_to_pixels.items():
-            pred = x[x == pixel_value].float()
-            mask = y[y == pixel_value].float()
-
-            losses[label] =  self.miou(pred, mask)
-
-        miou = sum(losses.values())/len(self.labels_to_pixels)
-
-        return 1 - miou
-    
 
 class hyperbolicdistance(nn.Module):
-    def __init__(self, labels_to_pixels: dict, c=0.1):
+    def __init__(self, labels : list, labels_to_pixels: dict, c=0.1):
         super(hyperbolicdistance, self).__init__()
         self.name = 'hyperbolic_distance'
         self.c = torch.tensor(c).float()
+
+        self.labels = labels
         self.labels_to_pixels = labels_to_pixels
 
     def forward(self, logits, targets):  
@@ -149,16 +168,18 @@ criterions: dict = {
 }
 
 class CombinedLoss(nn.Module):
-    def __init__(self, labels_to_pixels: dict, loss_list: list = ['cross_entropy', 'dice'],
+    def __init__(self, labels : list, labels_to_pixels: dict, loss_list: list = ['cross_entropy', 'dice'],
                  weights: list[float] = [0.5, 0.5]):
         super(CombinedLoss, self).__init__()
         self.name = 'combined'
+
+        self.labels = labels
         self.labels_to_pixels = labels_to_pixels
 
         if len(loss_list) != len(weights):
             raise ValueError("Length of loss_list and weights should be equal")
         
-        self.losses = [criterions[loss](labels_to_pixels = labels_to_pixels) for loss in loss_list]
+        self.losses = [criterions[loss](labels = labels, labels_to_pixels = labels_to_pixels) for loss in loss_list]
         
         self.weights = weights
     
