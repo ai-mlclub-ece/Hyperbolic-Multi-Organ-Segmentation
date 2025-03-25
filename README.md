@@ -11,15 +11,15 @@ AMOS, a large-scale, diverse, clinical dataset for abdominal organ segmentation.
 
 The dataset consists of 3 splits:
 ```
-Training
+Training:
     - 240 scans
     - 35,524 image slices
 
-Validation
+Validation:
     - 120 scans
     - 18,537 image slices
 
-Test
+Test:
     - 240 scans
     - 44,554 image slices
 ```
