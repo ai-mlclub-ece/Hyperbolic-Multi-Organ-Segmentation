@@ -7,6 +7,22 @@ Medical image segmentation is important for diagnosing diseases and planning tre
 
 ## Dataset details - (AMOS 22)
 
+AMOS, a large-scale, diverse, clinical dataset for abdominal organ segmentation. AMOS provides 500 CT and 100 MRI scans collected from multi-center, multi-vendor, multi-modality, multi-phase, multi-disease patients, each with voxel-level annotations of 15 abdominal organs, providing challenging examples and test-bed for studying robust segmentation algorithms under diverse targets and scenarios
+
+The dataset consists of 3 splits:
+```
+Training
+    - 240 scans
+    - 35,524 image slices
+
+Validation
+    - 120 scans
+    - 18,537 image slices
+
+Test
+    - 240 scans
+    - 44,554 image slices
+```
 
 ## Implementation
 
