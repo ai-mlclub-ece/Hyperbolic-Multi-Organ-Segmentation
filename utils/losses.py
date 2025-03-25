@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
 
 class CrossEntropyLoss(nn.Module):
     def __init__(self, labels : list, labels_to_pixels: dict):
@@ -37,14 +38,12 @@ class DiceLoss(nn.Module):
         return: Dice loss
         """
         losses = {}
-        masks.squeeze(1)
+        masks = masks.squeeze(1)
+
         for i, label in enumerate(self.labels_to_pixels):
 
             pred = preds[:, i, :, :].float()
-
-            masking = masks == self.labels_to_pixels[label]
-            
-            mask = masks[masking].float().view(pred.shape) if masking.sum() > 0 else torch.zeros_like(pred)
+            mask = (masks == self.labels_to_pixels[label]).float()
 
             losses[label] =  self.dice_coefficient(pred, mask)
 
