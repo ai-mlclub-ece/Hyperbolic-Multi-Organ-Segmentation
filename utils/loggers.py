@@ -6,7 +6,7 @@ class trainLogging:
 
         self.config = config
 
-        columns = ['epoch']
+        columns = ['epoch', 'train_loss', 'val_loss']
 
         train_metric_cols = ['train_' + metric for metric in metrics]
         val_metric_cols = ['val_' + metric for metric in metrics]
@@ -21,7 +21,10 @@ class trainLogging:
         epoch_row.update({f'train_{metric}': value for metric, value in train_logs.items()})
         epoch_row.update({f'val_{metric}' : value for metric, value in val_logs.items()})
 
-        self.logs = pd.concat([self.logs, pd.DataFrame([epoch_row])], ignore_index=True)
+        if self.logs.empty:
+            self.logs = pd.DataFrame([epoch_row])
+        else:
+            self.logs = pd.concat([self.logs, pd.DataFrame([epoch_row])], ignore_index=True)
 
     def save_train_logs(self, filename: str = None):
         self.logs = self.logs.sort_values(by = 'epoch')
