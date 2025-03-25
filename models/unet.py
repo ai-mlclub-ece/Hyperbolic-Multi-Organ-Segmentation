@@ -150,7 +150,7 @@ class UNet(nn.Module):
     
 class UNetTrainer:
     def __init__(self, config: Config = unetConfig()):
-        self.model = UNet(num_classes = len(config.labels))
+        self.model = UNet(num_classes = len(config.labels) + 1)
         self.optimizers = [Adam(self.model.parameters(), lr = config.learning_rate)]
         
 if __name__ == "__main__":

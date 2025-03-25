@@ -159,7 +159,7 @@ class HCUNet(nn.Module):
     
 class HCUNetTrainer:
     def __init__(self, config: Config = hc_unetConfig()):
-        self.model = HCUNet(num_classes = len(config.labels),
+        self.model = HCUNet(num_classes = len(config.labels) + 1,
                             embedding_dim = config.embedding_dim,
                             curvature = config.curvature,
                             lambda_cp = config.lambda_cp)
