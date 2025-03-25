@@ -48,7 +48,6 @@ class Validator:
 
         metrics = {metric.name: 0 for metric in self.metrics}
         for metric in self.metrics:
-            metrics[metric.name] += metric.compute(outputs, masks.squeeze(1),
-                                                   self.data.dataset.label_to_pixel_value)[1]
+            metrics[metric.name] += metric.compute(outputs, masks.squeeze(1))[1]
             
         return loss.item(), metrics

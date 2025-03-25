@@ -133,8 +133,7 @@ class Trainer:
 
         metrics = {metric.name: 0 for metric in self.metrics}
         for metric in self.metrics:
-            metrics[metric.name] += metric.compute(outputs, masks.squeeze(1),
-                                                   self.data.dataset.label_to_pixel_value)[1]
+            metrics[metric.name] += metric.compute(outputs, masks.squeeze(1))[1]
             
         return loss.item(), metrics
             
@@ -156,7 +155,7 @@ class Trainer:
             # Save if best model checkpoint
             if val_logs['dice_score'] > self.best_val_dice:
                 save_checkpoint(self.model, self.optimizers, epoch,
-                                self.checkpoint_dir + self.filename + '.pth',
+                                self.config.checkpoint_dir + self.filename + '.pth',
                                 self.multi_gpu)
         # Save Logs
         self.logger.save_train_logs(filename = self.config.log_dir + self.filename + '.csv')
@@ -197,25 +196,29 @@ def main():
     trainDataloader, valDataloader = get_dataloaders(multi_gpu = multi_gpu,
                                                      config = amosDatasetConfig(**args))
 
+    labels = trainDataloader.dataset.labels
+    labels_to_pixels = trainDataloader.dataset.label_to_pixel_value
+
     # Model Initialization
     model_trainer = model_trainers[train_config.model]()
-
+    
     # Loss Initialization
     if args['loss_list'] is not None:
         criterion = criterions['combined'](
             loss_list = train_config.loss_list,
             weights = train_config.weights,
-            labels_to_pixels = trainDataloader.dataset.label_to_pixel_value
+            labels = labels,
+            labels_to_pixels = labels_to_pixels
         )
         train_config.loss = 'combined'
     else:
-        criterion = criterions[train_config.loss](labels_to_pixels = trainDataloader.dataset.label_to_pixel_value)
+        criterion = criterions[train_config.loss](labels = labels, labels_to_pixels = labels_to_pixels)
     
     # Metric Initialization
     if train_config.metric == 'all':
-            metrics = [metric() for metric in all_metrics.values()]
+            metrics = [metric(labels = labels, labels_to_pixels = labels_to_pixels) for metric in all_metrics.values()]
     else :
-        metrics = [all_metrics[train_config.metric]]
+        metrics = [all_metrics[train_config.metric](labels = labels, labels_to_pixels = labels_to_pixels)]
 
     # Logger Initialization
     logger = trainLogging(metrics = [metric.name for metric in metrics], config = train_config)
