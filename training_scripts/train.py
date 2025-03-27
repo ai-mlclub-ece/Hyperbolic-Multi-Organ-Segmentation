@@ -20,9 +20,12 @@ from models import model_trainers
 from utils import (criterions,
                    all_metrics,
                    trainLogging,
-                   save_checkpoint)
+                   save_checkpoint,
+                   trainLogVisualizer,
+                   inferVisualizer)
 
 from validation import Validator
+from test import Tester
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -51,10 +54,9 @@ def parse_args():
     parser.add_argument('--batch-size', type = int, help = 'batch size')
     parser.add_argument('--epochs', type = int, help = 'number of epochs')
     parser.add_argument('--checkpoint-dir', type = str, help = 'path to the checkpoint dir')
-    parser.add_argument('--log-dir', type = str, help = 'path to the log dir')
 
     parser.add_argument('--single-gpu', action= 'store_true', help= 'use single gpu for training')
-
+    parser.add_argument('--visualize', action = 'store_true', help = 'save visualizations of the training logs & random sample inference')
 
     return parser.parse_args()
 
@@ -158,10 +160,10 @@ class Trainer:
             # Save if best model checkpoint
             if val_logs['dice_score'] > self.best_val_dice:
                 save_checkpoint(self.model, self.optimizers, epoch,
-                                self.config.checkpoint_dir + self.filename + '.pth',
+                                self.config.checkpoint_dir + '/best_model.pth',
                                 self.multi_gpu)
         # Save Logs
-        self.logger.save_train_logs(filename = self.config.log_dir + self.filename + '.csv')
+        self.logger.save_train_logs(filename = self.config.checkpoint_dir + '/train_logs.csv')
 
         training_time = time.time() - start_time
             
@@ -189,7 +191,15 @@ def main():
     config_filename = all_config.get_config_filename()
     all_config.save_config(all_config.all_configs_dir + config_filename)
 
+    checkpoint_dir = all_config.train_config['checkpoint_dir'] + config_filename
+    os.makedirs(checkpoint_dir, exist_ok = True)
+
+    all_config.save_config(checkpoint_dir + '/config')
+
+    
+
     train_config = trainConfig(**args)
+    train_config.checkpoint_dir = checkpoint_dir
 
     multi_gpu = not args['single_gpu']
 
@@ -225,7 +235,7 @@ def main():
         metrics = [all_metrics[train_config.metric](labels = labels, labels_to_pixels = labels_to_pixels)]
 
     # Logger Initialization
-    logger = trainLogging(metrics = [metric.name for metric in metrics], config = train_config)
+    logger = trainLogging(metrics = [metric.name for metric in metrics])
 
     trainer = Trainer(
         train_data = trainDataloader,
@@ -242,6 +252,34 @@ def main():
     )
 
     trainer.train()
+
+    if args['visualize']:
+        print("Visualizing Logs and Inference...")
+
+        tester = Tester(
+            test_data = valDataloader.dataset,
+            trainer = trainer,
+            criterion = criterion,
+            metrics = metrics,
+            checkpoint_path = train_config.checkpoint_dir + '/best_model.pth',
+
+            n_samples = 32,
+            batch_size = args['batch_size'],
+            random_seed = 42
+        )
+
+        _, images, masks, preds = tester.infer()
+
+        os.makedirs(train_config.checkpoint_dir + '/visualizations', exist_ok = True)
+
+        log_visualizer = trainLogVisualizer(train_config.checkpoint_dir + '/train_logs.csv')
+        log_visualizer.visualize(save_path = train_config.checkpoint_dir +  '/visualizations/logs.png')
+
+        infer_visualizer = inferVisualizer(criterion = criterion)
+        infer_visualizer.visualize_batch(images = images,
+                                         masks = masks,
+                                         preds = preds,
+                                         save_path = train_config.checkpoint_dir + '/visualizations/infer.png')
 
     destroy_process_group()
     

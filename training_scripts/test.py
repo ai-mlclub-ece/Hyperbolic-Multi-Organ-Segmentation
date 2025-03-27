@@ -39,7 +39,11 @@ class Tester:
         }
 
         self.model.eval()
+
+        all_images = []
+        all_masks = []
         all_preds = []
+
         with torch.no_grad():
         # Validate on all Batches
             for inputs, masks in self.data:
@@ -47,7 +51,9 @@ class Tester:
                 masks = masks.to(self.gpu_id)
 
                 preds, loss, metrics = self._run_batch(self.model, inputs, masks)
-                all_preds.append(preds)
+                all_preds.append(preds.cpu())
+                all_images.append(inputs.cpu())
+                all_masks.append(masks.cpu())
 
                 # Accumulate Logs
                 logs['loss'] += loss
@@ -58,7 +64,7 @@ class Tester:
         for log in logs:
             logs[log] /= len(self.data)
 
-        return logs, torch.tensor(all_preds).detach().numpy()
+        return logs, torch.cat(all_images).numpy(), torch.cat(all_masks).numpy(), torch.cat(all_preds).numpy()
 
     def _run_batch(self, model, inputs, masks):
 

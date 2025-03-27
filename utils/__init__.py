@@ -6,6 +6,7 @@ from .hyperbolic_utils import mobius_addition
 
 from .losses import criterions
 from .metrics import *
+from .visualize import *
 
 all_metrics = {
     'dice_score' : dicescore,
