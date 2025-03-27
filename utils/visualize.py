@@ -29,7 +29,7 @@ class inferVisualizer:
         hot_mask[diff] = 255
         
         ax[3].imshow(hot_mask, cmap='hot')
-        ax[3].set_title(f'diff = {self.criterion(mask, pred)}')
+        ax[3].set_title(f'diff = {self.criterion(mask, pred):.4f}')
         ax[3].axis('off')
 
         if save_path is not None:
