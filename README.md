@@ -52,7 +52,7 @@ Hyperbolic-Multi-Organ-Segmentation/training_scripts/train.py \
 --mode train --data-dir "amos22/" \
 --image-size 512 512 --window-preset "ct_abdomen" \
 --model unet --loss dice \
---epochs 10 --batch-size 16 
+--epochs 10 --batch-size 16 --visualize
 ```
 
 **Note:** Make sure you extracted dataset(amos22.zip) in current working directory, from [here](https://zenodo.org/records/7262581)
