@@ -1,4 +1,5 @@
 import torch
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -46,3 +47,28 @@ class inferVisualizer:
             save_path = save_path.replace('.png', f'_{i}.png')
             self.visualize(images[i, 0], masks[i, 0], preds[i, 0], save_path=save_path)
 
+class trainLogVisualizer:
+    def __init__(self, log_path: str):
+        self.log_path = log_path
+        self.logs = pd.read_csv(log_path)
+
+    def visualize(self, save_path: str = None):
+        fig, ax = plt.subplots(1, 2, figsize=(15, 5))
+
+        ax[0].plot(self.logs['epoch'], self.logs['train_loss'], label='train_loss')
+        ax[0].plot(self.logs['epoch'], self.logs['val_loss'], label='val_loss')
+        ax[0].set_title('Loss')
+        ax[0].set_xlabel('Epoch')
+        ax[0].set_ylabel('Loss')
+        ax[0].legend()
+
+        ax[1].plot(self.logs['epoch'], self.logs['train_dice'], label='train_dice')
+        ax[1].plot(self.logs['epoch'], self.logs['val_dice'], label='val_dice')
+        ax[1].set_title('Dice')
+        ax[1].set_xlabel('Epoch')
+        ax[1].set_ylabel('Dice')
+        ax[1].legend()
+
+        if save_path is not None:
+            plt.savefig(save_path)
+        plt.close()
