@@ -16,6 +16,7 @@ def get_dataloaders(multi_gpu : int, config: Config = amosDatasetConfig()) -> li
 
         val_dict = config.__dict__
         val_dict['split'] = 'validation'
+        val_dict['json_path'] = os.path.join(config.data_dir, 'dataset.json')
 
         val_dataset = AMOS_Dataset(**val_dict)
 
@@ -31,7 +32,7 @@ def get_dataloaders(multi_gpu : int, config: Config = amosDatasetConfig()) -> li
             val_dataset,
             batch_size= config.batch_size,
             shuffle = False,
-            sampler = DistributedSampler(train_dataset) if multi_gpu else None
+            sampler = DistributedSampler(val_dataset) if multi_gpu else None
         )
 
         return trainDataloader, valDataloader
@@ -40,6 +41,7 @@ def get_dataloaders(multi_gpu : int, config: Config = amosDatasetConfig()) -> li
 
         val_dict = config.__dict__
         val_dict['split'] = 'validation'
+        val_dict['json_path'] = os.path.join(config.data_dir, 'dataset.json')
 
         val_dataset = AMOS_Dataset(**val_dict)
 
@@ -47,20 +49,21 @@ def get_dataloaders(multi_gpu : int, config: Config = amosDatasetConfig()) -> li
             val_dataset,
             batch_size= config.batch_size,
             shuffle = False,
-            sampler = DistributedSampler(train_dataset) if multi_gpu else None
+            sampler = DistributedSampler(val_dataset) if multi_gpu else None
         )
         return valDataloader
     
     else :
         test_dict = config.__dict__
         test_dict['split'] = 'test'
+        test_dict['json_path'] = os.path.join(config.data_dir, 'dataset.json')
 
         test_dataset = AMOS_Dataset(**test_dict)
 
         testDataloader = DataLoader(
             test_dataset,
             batch_size= config.batch_size,
-            sampler = DistributedSampler(train_dataset) if multi_gpu else None
+            sampler = DistributedSampler(test_dataset) if multi_gpu else None
         )
         return testDataloader
     
