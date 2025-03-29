@@ -36,16 +36,12 @@ class inferVisualizer:
             plt.savefig(save_path)
         plt.close()
     
-    def visualize_batch(self, images: torch.Tensor, masks: torch.Tensor,
-                            preds: torch.Tensor, save_path: str):
-        
-        images = images.cpu().numpy()
-        masks = masks.cpu().numpy()
-        preds = preds.cpu().numpy()
+    def visualize_batch(self, images: np.ndarray, masks: np.ndarray,
+                            preds: np.ndarray, save_path: str):
 
         for i in range(images.shape[0]):
             save_path = save_path.replace('.png', f'_{i}.png')
-            self.visualize(images[i, 0], masks[i, 0], preds[i, 0], save_path=save_path)
+            self.visualize(images[i, 0], masks[i, 0], preds[i], save_path=save_path)
 
 class trainLogVisualizer:
     def __init__(self, log_path: str):
@@ -62,8 +58,8 @@ class trainLogVisualizer:
         ax[0].set_ylabel('Loss')
         ax[0].legend()
 
-        ax[1].plot(self.logs['epoch'], self.logs['train_dice'], label='train_dice')
-        ax[1].plot(self.logs['epoch'], self.logs['val_dice'], label='val_dice')
+        ax[1].plot(self.logs['epoch'], self.logs['train_dice_score'], label='train_dice')
+        ax[1].plot(self.logs['epoch'], self.logs['val_dice_score'], label='val_dice')
         ax[1].set_title('Dice')
         ax[1].set_xlabel('Epoch')
         ax[1].set_ylabel('Dice')

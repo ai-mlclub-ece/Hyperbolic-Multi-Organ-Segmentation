@@ -2,9 +2,7 @@ import pandas as pd
 from configs import Config, trainConfig
 
 class trainLogging:
-    def __init__(self, metrics: list[str], config: Config = trainConfig()):
-
-        self.config = config
+    def __init__(self, metrics: list[str]):
 
         columns = ['epoch', 'train_loss', 'val_loss']
 
