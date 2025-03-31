@@ -158,7 +158,7 @@ class Trainer:
             self.logger.add_epoch_logs(epoch, epoch_logs, val_logs)
 
             # Save if best model checkpoint
-            if (val_logs['dice_score'] > self.best_val_dice) & (gpu_id == 0):
+            if (val_logs['dice_score'] > self.best_val_dice) & (self.gpu_id == 0):
                 save_checkpoint(self.model, self.optimizers, epoch,
                                 self.config.checkpoint_dir + '/best_model.pth',
                                 self.multi_gpu)
