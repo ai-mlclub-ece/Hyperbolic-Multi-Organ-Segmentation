@@ -2,53 +2,51 @@ import os
 import torch
 from torch.utils.data import DataLoader
 
-
 class Validator:
-    def __init__(self, val_data : DataLoader,
-                 criterion, metrics, multi_gpu):
+    def __init__(self, val_data: DataLoader, criterion, metrics, multi_gpu: bool = False):
+        
         self.gpu_id = int(os.environ["LOCAL_RANK"]) if multi_gpu else 0
         self.data = val_data
         self.criterion = criterion
         self.metrics = metrics
-    
-    def validate(self, model):
 
-        # Initialize logs to 0
-        logs : dict = {
-            'loss' : 0,
-            **{metric.name: 0 for metric in self.metrics}
+    def validate(self, model):
+        
+        logs: dict = {
+            'loss': 0.0,
+            **{metric.name: 0.0 for metric in self.metrics}
         }
 
         model.eval()
-        
+
         with torch.no_grad():
-        # Validate on all Batches
             for inputs, masks in self.data:
                 inputs = inputs.to(self.gpu_id)
                 masks = masks.to(self.gpu_id)
 
-                loss, metrics = self._run_batch(model, inputs, masks)
+                loss, batch_metrics = self._run_batch(model, inputs, masks)
 
-                # Accumulate Logs
+                # Accumulate loss and metrics over batches
                 logs['loss'] += loss
-                for metric in metrics:
-                    logs[metric] += metrics[metric]
+                for metric_name, metric_value in batch_metrics.items():
+                    logs[metric_name] += metric_value
 
-        # Compute Average for all logs 
-        for log in logs:
-            logs[log] /= len(self.data)
+        # Average logs across all batches
+        num_batches = len(self.data)
+        for key in logs:
+            logs[key] /= num_batches
 
         return logs
 
     def _run_batch(self, model, inputs, masks):
-
         outputs = model(inputs)
         loss = self.criterion(outputs, masks)
 
-        outputs = torch.argmax(outputs, dim = 1)
+        predictions = torch.argmax(outputs, dim=1)
 
-        metrics = {metric.name: 0 for metric in self.metrics}
+        metrics_result = {}
         for metric in self.metrics:
-            metrics[metric.name] += metric.compute(outputs, masks.squeeze(1))[1]
-            
-        return loss.item(), metrics
+            _, value = metric.compute(predictions, masks.squeeze(1))
+            metrics_result[metric.name] = value
+
+        return loss.item(), metrics_result

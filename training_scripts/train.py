@@ -158,16 +158,16 @@ class Trainer:
             self.logger.add_epoch_logs(epoch, epoch_logs, val_logs)
 
             # Save if best model checkpoint
-            if val_logs['dice_score'] > self.best_val_dice:
+            if (val_logs['dice_score'] > self.best_val_dice) & (gpu_id == 0):
                 save_checkpoint(self.model, self.optimizers, epoch,
                                 self.config.checkpoint_dir + '/best_model.pth',
                                 self.multi_gpu)
-        # Save Logs
-        self.logger.save_train_logs(filename = self.config.checkpoint_dir + '/train_logs.csv')
-
-        training_time = time.time() - start_time
             
         if self.gpu_id == 0:
+            # Save Logs
+            self.logger.save_train_logs(filename = self.config.checkpoint_dir + '/train_logs.csv')
+
+            training_time = time.time() - start_time
             print(f"Training Complete in {training_time:.2f}s with {training_time/self.epochs:.2f} for epcoh")
             print(f"Best Validation Dice Score: {self.best_val_dice:.4f}")
         
@@ -177,6 +177,7 @@ class Trainer:
     
 def main():
     init_process_group(backend='nccl')
+    gpu_id = int(os.environ['LOCAL_RANK'])
 
     args = parse_args().__dict__
 
@@ -189,12 +190,14 @@ def main():
     all_config = allConfig(**args)
 
     config_filename = all_config.get_config_filename()
-    all_config.save_config(all_config.all_configs_dir + config_filename)
+    if gpu_id == 0:
+        all_config.save_config(all_config.all_configs_dir + config_filename)
 
     checkpoint_dir = all_config.train_config['checkpoint_dir'] + config_filename
     os.makedirs(checkpoint_dir, exist_ok = True)
 
-    all_config.save_config(checkpoint_dir + '/config')
+    if gpu_id == 0:
+        all_config.save_config(checkpoint_dir + '/config')
 
     
 

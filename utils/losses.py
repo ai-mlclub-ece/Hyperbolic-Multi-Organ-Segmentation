@@ -20,7 +20,7 @@ class CrossEntropyLoss(nn.Module):
         
         return: Cross Entropy loss
         """
-        return self.ce(x, y)
+        return self.ce(x, y.squeeze(1).long())
 
 class DiceLoss(nn.Module):
     def __init__(self, labels : list, labels_to_pixels: dict):
@@ -37,19 +37,15 @@ class DiceLoss(nn.Module):
         
         return: Dice loss
         """
-        losses = {}
+        losses = []
         masks = masks.squeeze(1)
 
         for i, label in enumerate(self.labels_to_pixels):
-
             pred = preds[:, i, :, :].float()
             mask = (masks == self.labels_to_pixels[label]).float()
+            losses.append(self.dice_coefficient(pred, mask))
 
-            losses[label] =  self.dice_coefficient(pred, mask)
-
-        dice_score = sum(losses.values())/len(self.labels)
-
-        return 1 - dice_score
+        return 1 - torch.mean(torch.stack(losses))
 
     def dice_coefficient(self, preds, masks, smooth=1e-6):
         intersection = torch.sum(preds * masks, dim=(1,2))
@@ -75,29 +71,22 @@ class JaccardLoss(nn.Module):
         
         return iou.mean()
     
-    def forward(self, x, y):
+    def forward(self, preds, masks):
         """
         x: output of the model
         y: target
         
         return: Jaccard loss
         """
-        
-        losses = {}
-        masks.squeeze(1)
+        losses = []
+        masks = masks.squeeze(1)
+
         for i, label in enumerate(self.labels_to_pixels):
-
             pred = preds[:, i, :, :].float()
+            mask = (masks == self.labels_to_pixels[label]).float()
+            losses.append(self.miou(pred, mask))
 
-            masking = masks == self.labels_to_pixels[label]
-            
-            mask = masks[masking].float().view(pred.shape) if masking.sum() > 0 else torch.zeros_like(pred)
-
-            losses[label] =  self.miou(pred, mask)
-
-        miou = sum(losses.values())/len(self.labels)
-
-        return 1 - miou
+        return 1 - torch.mean(torch.stack(losses))
     
 class HyperUL(nn.Module):
     def __init__(self, labels : list, labels_to_pixels: dict, c= 0.1,  t=2.718, hr=1.0):
