@@ -2,7 +2,7 @@ import math
 import torch
 
 
-def exp_map_zero(self, x: torch.Tensor, c: float) -> torch.Tensor:
+def exp_map_zero(x: torch.Tensor, c: float) -> torch.Tensor:
     """
     Projects Euclidean vectors x onto the Poincaré ball using the exponential map at the origin.
     Args:
@@ -21,7 +21,7 @@ def exp_map_zero(self, x: torch.Tensor, c: float) -> torch.Tensor:
     scale = torch.tanh(sqrt_c * norm) / (sqrt_c * (norm + 1e-6))
     return scale * x
 
-def mobius_addition(self, x: torch.Tensor, y: torch.Tensor, c: float) -> torch.Tensor:
+def mobius_addition(x: torch.Tensor, y: torch.Tensor, c: float) -> torch.Tensor:
     """
     Computes the Mobius addition of two points x and y in the Poincaré ball.
     Args:

@@ -39,8 +39,8 @@ class Validator:
         return logs
 
     def _run_batch(self, model, inputs, masks):
-        outputs = model(inputs)
-        loss = self.criterion(outputs, masks)
+        outputs, logits = model(inputs)
+        loss = self.criterion(logits, masks)
 
         predictions = torch.argmax(outputs, dim=1)
 

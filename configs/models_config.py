@@ -39,6 +39,6 @@ class hc_unetConfig(amosDatasetConfig):
 
         self.optimizers: list = ['Adam', 'RiemannianAdam']
         self.learning_rate: float = 10e-4
-        self.embedding_dim: int = 256
+        self.embedding_dim: int = 64
         self.curvature: float = 0.1
         self.lambda_cp: float = 1

@@ -1,4 +1,3 @@
-
 import os
 import sys
 import time
@@ -8,6 +7,7 @@ import argparse
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+from torch.nn.utils import clip_grad_norm_
 
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
@@ -20,9 +20,10 @@ from models import model_trainers
 from utils import (criterions,
                    all_metrics,
                    trainLogging,
-                   save_checkpoint,
+                   save_checkpoint, load_checkpoint,
                    trainLogVisualizer,
-                   inferVisualizer)
+                   inferVisualizer,
+                   schedulers)
 
 from validation import Validator
 from test import Tester
@@ -32,6 +33,7 @@ def parse_args():
     parser.add_argument('--mode', choices = ['train', 'validation', 'test'], help = 'choose between train, validation, test')
     parser.add_argument('--version', type = int, help = 'version of the config')
     parser.add_argument('--dataset', help = 'name of the dataset')
+    parser.add_argument('--config-filename', type=str, help='Custom config filename (without extension). If not provided, will use model-loss-v1 format')
 
     parser.add_argument('--data-dir', type = str, help = 'path to the dataset dir')
     parser.add_argument('--all-configs-dir', type = str, help = 'path to the all configs dir')
@@ -56,7 +58,6 @@ def parse_args():
     parser.add_argument('--checkpoint-dir', type = str, help = 'path to the checkpoint dir')
 
     parser.add_argument('--single-gpu', action= 'store_true', help= 'use single gpu for training')
-    parser.add_argument('--visualize', action = 'store_true', help = 'save visualizations of the training logs & random sample inference')
 
     return parser.parse_args()
 
@@ -75,10 +76,36 @@ class Trainer:
         
         self.data = train_data
         self.model : nn.Module = trainer.model.to(self.gpu_id)
+        self.optimizers = trainer.optimizers
+        
+        # Add learning rate scheduler
+        self.schedulers = []
+        for optimizer in self.optimizers:
+            scheduler = schedulers.get_scheduler(
+                optimizer,
+                mode='min',
+                factor=0.1,
+                patience=5
+            )
+            self.schedulers.append(scheduler)
+            
+        self.best_val_dice = 0
+        epoch = 0
+        # Load Checkpoint if exists
+        if os.path.exists(train_config.checkpoint_dir + '/best_model.pth'):
+            if self.gpu_id == 0:
+                print(f"Loading model from {train_config.checkpoint_dir + '/best_model.pth'}")
+
+            self.model, self.optimizers, self.schedulers, epoch, self.best_val_dice = load_checkpoint(
+                model = self.model,
+                optimizers = self.optimizers,
+                schedulers = self.schedulers,
+                filename = train_config.checkpoint_dir + '/best_model.pth'
+            )
+        
         self.criterion = criterion
         self.metrics = metrics
-        self.optimizers = trainer.optimizers
-        self.epochs = epochs
+        self.epochs = epochs - epoch
 
         self.multi_gpu = multi_gpu
         if multi_gpu:
@@ -90,9 +117,11 @@ class Trainer:
             metrics = metrics,
             multi_gpu = multi_gpu
         )
-        self.best_val_dice = 0
         self.logger = train_logger
         self.filename = config_filename
+        
+        # Gradient clipping threshold
+        self.max_grad_norm = 1.0
     
     def _run_epoch(self, epoch : int) -> dict:
 
@@ -122,14 +151,20 @@ class Trainer:
         return epoch_logs
 
     def _run_batch(self, inputs, masks):
-
         for optimizer in self.optimizers:
             optimizer.zero_grad()
 
-        outputs = self.model(inputs)
-        loss = self.criterion(outputs, masks)
+        outputs, logits = self.model(inputs)
+        loss = self.criterion(logits, masks)
 
         loss.backward()
+
+        # Apply gradient clipping
+        if self.multi_gpu:
+            # For DDP, we need to access the module
+            clip_grad_norm_(self.model.module.parameters(), self.max_grad_norm)
+        else:
+            clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
 
         for optimizer in self.optimizers:
             optimizer.step()
@@ -154,14 +189,26 @@ class Trainer:
             # Validation
             val_logs = self.validator.validate(model = self.model)
 
+            # Update learning rate based on validation loss
+            for scheduler in self.schedulers:
+                scheduler.step(val_logs['loss'])
+
             # Update Logs
             self.logger.add_epoch_logs(epoch, epoch_logs, val_logs)
 
             # Save if best model checkpoint
             if (val_logs['dice_score'] > self.best_val_dice) & (self.gpu_id == 0):
-                save_checkpoint(self.model, self.optimizers, epoch,
-                                self.config.checkpoint_dir + '/best_model.pth',
-                                self.multi_gpu)
+                save_checkpoint(
+                    model = self.model,
+                    optimizers = self.optimizers,
+                    schedulers = self.schedulers,
+                    epoch = epoch,
+                    filename = self.config.checkpoint_dir + '/best_model.pth',
+                    best_val_dice = self.best_val_dice,
+                    multi_gpu = self.multi_gpu
+                )
+                self.best_val_dice = val_logs['dice_score']
+                print(f"Best Model Saved with Validation Dice Score: {self.best_val_dice:.4f}")
             
         if self.gpu_id == 0:
             # Save Logs
@@ -186,10 +233,21 @@ def main():
 
     if not torch.cuda.is_available():
         raise Exception("Cuda is not available, training on CPU is not Ideal")
+    
+    if args['loss_list'] is not None:
+        if len(args['loss_list']) != len(args['weights']):
+            raise Exception("Length of loss list and weights should be same")
+        
+        args['loss'] = 'combined'
         
     all_config = allConfig(**args)
 
-    config_filename = all_config.get_config_filename()
+    # Use provided config filename or generate default
+    if args.get('config_filename'):
+        config_filename = args['config_filename']
+    else:
+        config_filename = all_config.get_config_filename()
+
     if gpu_id == 0:
         all_config.save_config(all_config.all_configs_dir + config_filename)
 
@@ -198,8 +256,6 @@ def main():
 
     if gpu_id == 0:
         all_config.save_config(checkpoint_dir + '/config')
-
-    
 
     train_config = trainConfig(**args)
     train_config.checkpoint_dir = checkpoint_dir
@@ -255,34 +311,6 @@ def main():
     )
 
     trainer.train()
-
-    if args['visualize']:
-        print("Visualizing Logs and Inference...")
-
-        tester = Tester(
-            test_data = valDataloader.dataset,
-            trainer = trainer,
-            criterion = criterion,
-            metrics = metrics,
-            checkpoint_path = train_config.checkpoint_dir + '/best_model.pth',
-
-            n_samples = 32,
-            batch_size = args['batch_size'],
-            random_seed = 42
-        )
-
-        _, images, masks, preds = tester.infer()
-
-        os.makedirs(train_config.checkpoint_dir + '/visualizations', exist_ok = True)
-
-        log_visualizer = trainLogVisualizer(train_config.checkpoint_dir + '/train_logs.csv')
-        log_visualizer.visualize(save_path = train_config.checkpoint_dir +  '/visualizations/logs.png')
-
-        infer_visualizer = inferVisualizer(criterion = criterion)
-        infer_visualizer.visualize_batch(images = images,
-                                         masks = masks,
-                                         preds = preds,
-                                         save_path = train_config.checkpoint_dir + '/visualizations/infer.png')
 
     destroy_process_group()
     

@@ -4,18 +4,23 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
 class CrossEntropyLoss(nn.Module):
-    def __init__(self, labels : list, labels_to_pixels: dict):
+    def __init__(self, labels : list, labels_to_pixels: dict, class_weights: list = None):
         super(CrossEntropyLoss, self).__init__()
         self.name = 'cross_entropy'
 
         self.labels = labels
         self.labels_to_pixels = labels_to_pixels
+        
+        if class_weights is not None:
+            self.class_weights = torch.tensor(class_weights).float()
+        else:
+            self.class_weights = None
 
-        self.ce = nn.CrossEntropyLoss()
+        self.ce = nn.CrossEntropyLoss(weight=self.class_weights)
 
     def forward(self, x, y):
         """
-        x: output of the model
+        x: raw logits from model
         y: target
         
         return: Cross Entropy loss
@@ -23,49 +28,63 @@ class CrossEntropyLoss(nn.Module):
         return self.ce(x, y.squeeze(1).long())
 
 class DiceLoss(nn.Module):
-    def __init__(self, labels : list, labels_to_pixels: dict):
+    def __init__(self, labels : list, labels_to_pixels: dict, class_weights: list = None):
         super(DiceLoss, self).__init__()
         self.name = 'dice'
 
         self.labels = labels
         self.labels_to_pixels = labels_to_pixels
+        
+        if class_weights is not None:
+            self.class_weights = torch.tensor(class_weights).float()
+        else:
+            self.class_weights = torch.ones(len(labels))
 
     def forward(self, preds, masks):
         """
-        x: output of the model
+        x: raw logits from model
         y: target
         
         return: Dice loss
         """
+        # Apply softmax to logits
+        preds = F.softmax(preds, dim=1)
+        
         losses = []
         masks = masks.squeeze(1)
 
-        for i, label in enumerate(self.labels_to_pixels):
+        for i, label in enumerate(self.labels):
             pred = preds[:, i, :, :].float()
             mask = (masks == self.labels_to_pixels[label]).float()
-            losses.append(self.dice_coefficient(pred, mask))
+            weight = self.class_weights[i] if i < len(self.class_weights) else 1.0
+            losses.append(self.dice_coefficient(pred, mask) * weight)
 
         return 1 - torch.mean(torch.stack(losses))
 
     def dice_coefficient(self, preds, masks, smooth=1e-6):
-        intersection = torch.sum(preds * masks, dim=(1,2))
-        union = torch.sum(preds, dim=(1,2)) + torch.sum(masks, dim=(1,2))
+        intersection = torch.sum(preds * masks)
+        union = torch.sum(preds) + torch.sum(masks)
 
         dice_score = (2. * intersection + smooth) / (union + smooth)
 
         return dice_score.mean()
     
 class JaccardLoss(nn.Module):
-    def __init__(self, labels : list, labels_to_pixels: dict):
+    def __init__(self, labels : list, labels_to_pixels: dict, class_weights: list = None):
         super(JaccardLoss, self).__init__()
         self.name = 'jaccard'
 
         self.labels = labels
         self.labels_to_pixels = labels_to_pixels
+        
+        if class_weights is not None:
+            self.class_weights = torch.tensor(class_weights).float()
+        else:
+            self.class_weights = torch.ones(len(labels))
 
     def miou(self, preds, masks, smooth=1e-6):
-        intersection = torch.sum(preds * masks, dim=(1,2))
-        union = torch.sum(preds + masks, dim=(1,2)) - intersection
+        intersection = torch.sum(preds * masks)
+        union = torch.sum(preds + masks) - intersection
 
         iou = (intersection + smooth) / (union + smooth)
         
@@ -73,23 +92,26 @@ class JaccardLoss(nn.Module):
     
     def forward(self, preds, masks):
         """
-        x: output of the model
+        x: raw logits from model
         y: target
         
         return: Jaccard loss
         """
+        # Apply softmax to logits
+        preds = F.softmax(preds, dim=1)
+        
         losses = []
         masks = masks.squeeze(1)
 
         for i, label in enumerate(self.labels_to_pixels):
             pred = preds[:, i, :, :].float()
             mask = (masks == self.labels_to_pixels[label]).float()
-            losses.append(self.miou(pred, mask))
+            losses.append(self.miou(pred, mask) * self.class_weights[i])
 
         return 1 - torch.mean(torch.stack(losses))
     
 class HyperUL(nn.Module):
-    def __init__(self, labels : list, labels_to_pixels: dict, c= 0.1,  t=2.718, hr=1.0):
+    def __init__(self, labels : list, labels_to_pixels: dict, c= 0.1, t=2.718, hr=1.0, class_weights: list = None):
         super(HyperUL, self).__init__()
         self.name = 'hyperul'
         self.c = torch.tensor(c).float()
@@ -98,16 +120,20 @@ class HyperUL(nn.Module):
 
         self.labels = labels
         self.labels_to_pixels = labels_to_pixels
+        
+        if class_weights is not None:
+            self.class_weights = torch.tensor(class_weights).float()
+        else:
+            self.class_weights = None
 
     def forward(self, logits, targets):  
         """
-        logits: output of the model
+        logits: raw logits from model
         targets: target
         
         return: Hyperbolic uncertainty loss
         """
-  
-        ce_loss = F.cross_entropy(logits.tensor, targets.squeeze(1).long(), reduction='none')
+        ce_loss = F.cross_entropy(logits, targets.squeeze(1).long(), weight=self.class_weights, reduction='none')
 
         sqrt_c = torch.sqrt(self.c)
         norm  = torch.norm(logits.tensor,dim=1)
@@ -128,13 +154,18 @@ class HyperUL(nn.Module):
         return hyperul
 
 class hyperbolicdistance(nn.Module):
-    def __init__(self, labels : list, labels_to_pixels: dict, c=0.1):
+    def __init__(self, labels : list, labels_to_pixels: dict, c=0.1, class_weights: list = None):
         super(hyperbolicdistance, self).__init__()
         self.name = 'hyperbolic_distance'
         self.c = torch.tensor(c).float()
 
         self.labels = labels
         self.labels_to_pixels = labels_to_pixels
+        
+        if class_weights is not None:
+            self.class_weights = torch.tensor(class_weights).float()
+        else:
+            self.class_weights = torch.ones(len(labels))
 
     def forward(self, logits, targets):  
         """
@@ -157,7 +188,7 @@ criterions: dict = {
 
 class CombinedLoss(nn.Module):
     def __init__(self, labels : list, labels_to_pixels: dict, loss_list: list = ['cross_entropy', 'dice'],
-                 weights: list[float] = [0.5, 0.5]):
+                 weights: list[float] = [0.5, 0.5], class_weights: list = None):
         super(CombinedLoss, self).__init__()
         self.name = 'combined'
 
@@ -167,7 +198,7 @@ class CombinedLoss(nn.Module):
         if len(loss_list) != len(weights):
             raise ValueError("Length of loss_list and weights should be equal")
         
-        self.losses = [criterions[loss](labels = labels, labels_to_pixels = labels_to_pixels) for loss in loss_list]
+        self.losses = [criterions[loss](labels=labels, labels_to_pixels=labels_to_pixels, class_weights=class_weights) for loss in loss_list]
         
         self.weights = weights
     

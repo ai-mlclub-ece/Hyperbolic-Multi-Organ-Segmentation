@@ -150,12 +150,12 @@ class HCUNet(nn.Module):
         embedding = self.unet(x)
 
         # Compute hyperbolic embeddings
-        hyperbolic_embedding = exp_map_zero(embedding, self.hc_logreg.c)
+        hyperbolic_embedding = exp_map_zero(embedding, self.classifier.c)
         
         # Compute logits with hyperbolic logistic regression
         logits = self.classifier(hyperbolic_embedding)
 
-        return self.activation(logits)
+        return self.activation(logits), logits
     
 class HCUNetTrainer:
     def __init__(self, config: Config = hc_unetConfig()):
@@ -173,4 +173,3 @@ if __name__ == "__main__":
                    curvature=0.1,
                    lambda_cp=1.0
     )
-        

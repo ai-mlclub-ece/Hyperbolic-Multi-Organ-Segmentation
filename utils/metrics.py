@@ -42,8 +42,8 @@ class dicescore(baseMetric):
             dice_score: dice coefficient
         """
 
-        intersection = torch.sum(preds * masks, dim=(1,2))
-        union = torch.sum(preds, dim=(1,2)) + torch.sum(masks, dim=(1,2))
+        intersection = torch.sum(preds * masks)
+        union = torch.sum(preds) + torch.sum(masks)
 
         dice_score = (2. * intersection + smooth) / (union + smooth)
 
@@ -72,8 +72,8 @@ class miou(baseMetric):
     
         targets = targets.float()
 
-        intersection = (preds * targets).sum(dim=(1,2))
-        union = (preds + targets).sum(dim=(1,2)) - intersection 
+        intersection = (preds * targets).sum()
+        union = (preds + targets).sum() - intersection 
 
         iou = (intersection + 1e-8) / (union + 1e-8)
         return iou.mean().item()

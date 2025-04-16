@@ -146,7 +146,7 @@ class UNet(nn.Module):
             torch.Tensor, output tensor
         """
         x = self.unet_backbone(x)
-        return self.final_activation(x)
+        return self.final_activation(x), x
     
 class UNetTrainer:
     def __init__(self, config: Config = unetConfig()):

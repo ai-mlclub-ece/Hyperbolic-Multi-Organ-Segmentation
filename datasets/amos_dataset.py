@@ -37,7 +37,7 @@ class dataIngestion:
             labels (dict): The label to pixel value mapping of the dataset
         """
         pixel_to_label = self.jsonData["labels"]
-        label_to_pixel= {label: pixel_value for pixel_value, label in pixel_to_label.items()}
+        label_to_pixel= {label: int(pixel_value) for pixel_value, label in pixel_to_label.items()}
         return label_to_pixel
     
     def loadVolume(self, path:str, transpose: bool = False) -> np.ndarray:
